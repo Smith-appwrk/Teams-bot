@@ -7,22 +7,13 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 
-// Define support users array
-const SUPPORT_USERS = [
-  {
-    email: 'smith.g@unilever.com',
-    name: 'g, Smith',
-    mention: {
-      mentioned: {
-        id: 'smith.g@unilever.com',
-        name: 'g, Smith'
-      },
-      text: '<at>g, Smith</at>',
-      type: 'mention'
-    }
-  }
-  // Add more users in the same format as needed
-];
+// Parse support users and reply to list from environment variables
+const SUPPORT_USERS = (process.env.SUPPORT_USERS || '').split(',').map(user => {
+  const [name, email] = user.split(':');
+  return { name, email };
+});
+
+const REPLY_TO = (process.env.REPLY_TO || '').split(',');
 
 class BotActivityHandler extends TeamsActivityHandler {
   constructor() {
@@ -39,13 +30,13 @@ class BotActivityHandler extends TeamsActivityHandler {
       'utf8'
     );
 
-    var sampleDescription = "With this sample your bot can receive user messages across standard channels in a team without being @mentioned";
-    var option = "Type 1 to know about the permissions required,  Type 2 for documentation link"
-    var permissionRequired = "This capability is enabled by specifying the ChannelMessage.Read.Group permission in the manifest of an RSC enabled Teams app";
-    var docLink = "https://docs.microsoft.com/en-us/microsoftteams/platform/bots/how-to/conversations/channel-messages-with-rsc";
-
     // Activity called when there's a message in channel
     this.onMessage(async (context, next) => {
+
+      if (!REPLY_TO.includes(context.activity.from.name)) {
+        return;
+      }
+
       const removedMentionText = TurnContext.removeRecipientMention(context.activity);
       const message = removedMentionText || context.activity.text;
 
@@ -129,7 +120,7 @@ class BotActivityHandler extends TeamsActivityHandler {
 
     // Called when the bot is added to a team.
     this.onMembersAdded(async (context, next) => {
-      var welcomeText = "Hello and welcome! With this sample your bot can receive user messages across standard channels in a team without being @mentioned";
+      var welcomeText = "Hello and welcome! I am your assistant for IntelliGate support. Please mention me with your query and I will do my best to help you. If I am unable to assist, I will notify our support team.";
       await context.sendActivity(MessageFactory.text(welcomeText));
       await next();
     });
@@ -150,26 +141,26 @@ class BotActivityHandler extends TeamsActivityHandler {
   }
 
   async handleErrorResponse(context, error, isNoAnswer = false) {
+
     const errorMsg = isNoAnswer ?
       "I don't have information about that in my knowledge base. Let me notify our support team." :
       "Sorry, I encountered an error processing your request. Let me notify our support team.";
 
     // Create activity with proper mention format
-    const activity = {
-      type: 'message',
-      text: `${errorMsg}\n\n`,
-      entities: SUPPORT_USERS.map(user => ({
-        type: 'mention',
-        text: `<at>${user.name}</at>`,
-        mentioned: {
-          id: user.email,
-          name: user.name
-        }
-      }))
-    };
+    const activity = MessageFactory.text(`${errorMsg}\n\n`);
+    activity.entities = SUPPORT_USERS.map((user) => ({
+      "type": "mention",
+      "text": `<at>${new TextEncoder().encode(user.name)}</at>`,
+      "mentioned": {
+        "id": user.email,// User Principle Name
+        "name": user.name
+      }
+    }));
+
+
+    activity.text += `${activity.entities.map((entity) => entity.text)} - Could you please help with this query?`;
 
     // Add the query text after mentions
-    activity.text += " - Could you please help with this query?";
 
     await context.sendActivity(activity);
   }
