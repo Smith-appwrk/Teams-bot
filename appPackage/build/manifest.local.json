@@ -1,0 +1,62 @@
+{
+    "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.19/MicrosoftTeams.schema.json",
+    "manifestVersion": "1.19",
+    "version": "1.0.0",
+    "id": "0282f442-b836-424d-b317-84e11efa1ea2",
+    "developer": {
+        "name": "IntelliGate Support",
+        "websiteUrl": "https://sdcprod.unilever.com/",
+        "privacyUrl": "https://www.microsoft.com/privacy",
+        "termsOfUseUrl": "https://www.microsoft.com/termsofuse"
+    },
+    "name": {
+        "short": "IntelliGate AI Agent",
+        "full": "IntelliGate Support AI Assistant"
+    },
+    "description": {
+        "short": "AI-powered assistant for IntelliGate support and troubleshooting.",
+        "full": "An intelligent bot that helps users with IntelliGate-related questions, troubleshooting, and support. Provides instant answers about driver registration, QR code issues, application problems, yard management, and common error messages."
+    },
+    "icons": {
+        "outline": "outline.png",
+        "color": "color.png"
+    },
+    "bots": [
+        {
+            "botId": "0d09dbc8-87aa-4532-aa4f-58c6dcedbe07",
+            "scopes": [
+                "team",
+                "personal",
+                "groupChat"
+            ],
+            "isNotificationOnly": false
+        }
+    ],
+    "accentColor": "#60A18E",
+    "permissions": [
+        "identity",
+        "messageTeamMembers"
+    ],
+    "validDomains": [
+        "rvc7rjgv-3978.inc1.devtunnels.ms",
+        "token.botframework.com"
+    ],
+    "webApplicationInfo": {
+        "id": "0d09dbc8-87aa-4532-aa4f-58c6dcedbe07",
+        "resource": "https://AnyString"
+    },
+    "authorization": {
+        "permissions": {
+            "resourceSpecific": [
+                {
+                    "type": "Application",
+                    "name": "ChannelMessage.Read.Group"
+                },
+                {
+                    "type": "Application",
+                    "name": "ChatMessage.Read.Chat"
+                }
+            ]
+        }
+    }
+}
