@@ -21,7 +21,7 @@ class BotActivityHandler extends TeamsActivityHandler {
 
     // Initialize OpenAI
     this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
+      apiKey: process.env.SECRET_OPENAI_API_KEY
     });
 
     // Load IntelliGate FAQ content
@@ -32,8 +32,13 @@ class BotActivityHandler extends TeamsActivityHandler {
 
     // Activity called when there's a message in channel
     this.onMessage(async (context, next) => {
+      // Check if message is from allowed users or bot is mentioned
+      const isMentioned = context.activity.entities?.some(entity =>
+        entity.type === 'mention' &&
+        entity.mentioned.id === context.activity.recipient.id
+      );
 
-      if (!REPLY_TO.includes(context.activity.from.name)) {
+      if (!REPLY_TO.includes(context.activity.from.name) && !isMentioned) {
         return;
       }
 
@@ -42,6 +47,21 @@ class BotActivityHandler extends TeamsActivityHandler {
 
       try {
         let userQuery;
+
+        // First detect the language
+        const languageDetection = await this.openai.chat.completions.create({
+          model: "gpt-3.5-turbo",
+          messages: [
+            {
+              role: "system",
+              content: "Detect the language of the following text and respond with the language code only (e.g., 'en' for English, 'es' for Spanish, etc.)"
+            },
+            { role: "user", content: message }
+          ],
+          temperature: 0.3,
+        });
+
+        const detectedLanguage = languageDetection.choices[0].message.content.toLowerCase();
 
         // Check if message contains an image
         if (context.activity.attachments?.length > 0 &&
@@ -87,16 +107,36 @@ class BotActivityHandler extends TeamsActivityHandler {
 
           userQuery = visionResponse.choices[0].message.content;
         } else {
+          // First analyze if the message is a question or error report
+          const intentAnalysis = await this.openai.chat.completions.create({
+            model: "gpt-3.5-turbo",
+            messages: [
+              {
+                role: "system",
+                content: "Analyze if the given message is a question or error report. Respond with exactly: QUESTION, ERROR, or IGNORE. Examples: 'How do I...' -> QUESTION, 'I'm getting error...' -> ERROR, 'Good morning' -> IGNORE"
+              },
+              { role: "user", content: message }
+            ],
+            temperature: 0.5,
+          });
+
+          const messageIntent = intentAnalysis.choices[0].message.content;
+
+          // Only proceed if message is a question or error
+          if (messageIntent === 'IGNORE' && !isMentioned) {
+            return;
+          }
+
           userQuery = message;
         }
 
-        // Get response from knowledge base
+        // Get response from knowledge base and translate if needed
         const completion = await this.openai.chat.completions.create({
           model: "gpt-3.5-turbo",
           messages: [
             {
               role: "system",
-              content: `You are an IntelliGate support assistant. Use only the following knowledge base to answer questions: \n\n${intelligateContent}\n\nIf you cannot find a relevant answer in the knowledge base, respond with exactly: NO_ANSWER`
+              content: `You are an IntelliGate support assistant. Use only the following knowledge base to answer questions. If the detected language is not English, translate your response to ${detectedLanguage}. Knowledge base:\n\n${intelligateContent}\n\nIf you cannot find a relevant answer in the knowledge base, respond with exactly: NO_ANSWER`
             },
             { role: "user", content: userQuery }
           ],
@@ -106,7 +146,22 @@ class BotActivityHandler extends TeamsActivityHandler {
         const response = completion.choices[0].message.content;
 
         if (response === 'NO_ANSWER') {
-          await this.handleErrorResponse(context, null, true);
+          // Translate error message if needed
+          if (detectedLanguage !== 'en') {
+            const translatedError = await this.openai.chat.completions.create({
+              model: "gpt-3.5-turbo",
+              messages: [
+                {
+                  role: "system",
+                  content: `Translate the following text to ${detectedLanguage}: I don't have information about that in my knowledge base. Let me notify our support team.`
+                }
+              ],
+              temperature: 0.3,
+            });
+            await this.handleErrorResponse(context, null, true, translatedError.choices[0].message.content);
+          } else {
+            await this.handleErrorResponse(context, null, true);
+          }
         } else {
           await context.sendActivity(MessageFactory.text(response));
         }
@@ -140,10 +195,9 @@ class BotActivityHandler extends TeamsActivityHandler {
     }
   }
 
-  async handleErrorResponse(context, error, isNoAnswer = false) {
-
+  async handleErrorResponse(context, error, isNoAnswer = false, translatedMessage = null) {
     const errorMsg = isNoAnswer ?
-      "I don't have information about that in my knowledge base. Let me notify our support team." :
+      (translatedMessage || "I don't have information about that in my knowledge base. Let me notify our support team.") :
       "Sorry, I encountered an error processing your request. Let me notify our support team.";
 
     // Create activity with proper mention format
@@ -157,12 +211,21 @@ class BotActivityHandler extends TeamsActivityHandler {
       }
     }));
 
-
     activity.text += `${activity.entities.map((entity) => entity.text)} - Could you please help with this query?`;
 
     // Add the query text after mentions
 
     await context.sendActivity(activity);
+  }
+
+  async cleanupOldConversations() {
+    const currentTime = Date.now();
+    for (const [conversationId, history] of this.conversationHistory.entries()) {
+      const lastMessageTime = Math.max(...history.map(msg => msg.timestamp));
+      if (currentTime - lastMessageTime > this.MESSAGE_RETENTION) {
+        this.conversationHistory.delete(conversationId);
+      }
+    }
   }
 }
 
