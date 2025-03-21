@@ -13,7 +13,9 @@ const SUPPORT_USERS = (process.env.SUPPORT_USERS || '').split(',').map(user => {
   return { name, email };
 });
 
-const REPLY_TO = (process.env.REPLY_TO || '').split(',');
+const REPLY_TO = (process.env.REPLY_TO || '').split('|').map(name =>
+  name.toLowerCase().replaceAll(' ', '')
+);
 
 class BotActivityHandler extends TeamsActivityHandler {
   constructor() {
@@ -38,7 +40,7 @@ class BotActivityHandler extends TeamsActivityHandler {
         entity.mentioned.id === context.activity.recipient.id
       );
 
-      if (!REPLY_TO.includes(context.activity.from.name) && !isMentioned) {
+      if (!REPLY_TO.includes(context.activity.from.name.toLowerCase().replaceAll(' ', '')) && !isMentioned) {
         return;
       }
 
