@@ -26,6 +26,16 @@ class BotActivityHandler extends TeamsActivityHandler {
       apiKey: process.env.SECRET_OPENAI_API_KEY
     });
 
+    // Initialize conversation history storage
+    this.conversationHistory = new Map();
+
+    // Set message retention count (how many messages to keep per conversation)
+    this.MESSAGE_RETENTION_COUNT = 20;
+
+    // Set response delay in milliseconds (15-20 seconds)
+    this.RESPONSE_DELAY_MIN = 15000;
+    this.RESPONSE_DELAY_MAX = 20000;
+
     // Load IntelliGate FAQ content
     const intelligateContent = fs.readFileSync(
       path.join(__dirname, '../data/intelligate.md'),
@@ -47,7 +57,23 @@ class BotActivityHandler extends TeamsActivityHandler {
       const removedMentionText = TurnContext.removeRecipientMention(context.activity);
       const message = removedMentionText || context.activity.text;
 
+      // Store the incoming message in conversation history
+      this.addMessageToHistory(context.activity.conversation.id, {
+        role: 'user',
+        name: context.activity.from.name,
+        content: message,
+        timestamp: Date.now()
+      });
+
       try {
+        // Calculate a random delay between min and max values
+        const responseDelay = Math.floor(
+          Math.random() * (this.RESPONSE_DELAY_MAX - this.RESPONSE_DELAY_MIN + 1) + this.RESPONSE_DELAY_MIN
+        );
+
+        // Wait for the calculated delay
+        await new Promise(resolve => setTimeout(resolve, responseDelay));
+
         let userQuery;
 
         // First detect the language
@@ -132,20 +158,40 @@ class BotActivityHandler extends TeamsActivityHandler {
           userQuery = message;
         }
 
+        // Get conversation history for context
+        const conversationMessages = this.getConversationHistory(context.activity.conversation.id);
+
+        // Format conversation history for OpenAI
+        const formattedHistory = conversationMessages.map(msg => ({
+          role: msg.role === 'user' ? 'user' : 'assistant',
+          content: msg.content
+        }));
+
+        // Prepare messages array with system prompt and conversation history
+        const messagesForCompletion = [
+          {
+            role: "system",
+            content: `You are an IntelliGate support assistant. Use only the following knowledge base to answer questions. If the detected language is not English, translate your response to ${detectedLanguage}. Knowledge base:\n\n${intelligateContent}\n\nIf you cannot find a relevant answer in the knowledge base, respond with exactly: NO_ANSWER`
+          },
+          ...formattedHistory,
+          { role: "user", content: userQuery }
+        ];
+
         // Get response from knowledge base and translate if needed
         const completion = await this.openai.chat.completions.create({
           model: "gpt-3.5-turbo",
-          messages: [
-            {
-              role: "system",
-              content: `You are an IntelliGate support assistant. Use only the following knowledge base to answer questions. If the detected language is not English, translate your response to ${detectedLanguage}. Knowledge base:\n\n${intelligateContent}\n\nIf you cannot find a relevant answer in the knowledge base, respond with exactly: NO_ANSWER`
-            },
-            { role: "user", content: userQuery }
-          ],
+          messages: messagesForCompletion,
           temperature: 0.7,
         });
 
         const response = completion.choices[0].message.content;
+
+        // Store the bot's response in conversation history
+        this.addMessageToHistory(context.activity.conversation.id, {
+          role: 'assistant',
+          content: response,
+          timestamp: Date.now()
+        });
 
         if (response === 'NO_ANSWER') {
           // Translate error message if needed
@@ -167,6 +213,9 @@ class BotActivityHandler extends TeamsActivityHandler {
         } else {
           await context.sendActivity(MessageFactory.text(response));
         }
+
+        // Clean up old conversations periodically
+        this.cleanupOldConversations();
       } catch (error) {
         console.error('OpenAI API error:', error);
         await this.handleErrorResponse(context, error);
@@ -181,6 +230,29 @@ class BotActivityHandler extends TeamsActivityHandler {
       await context.sendActivity(MessageFactory.text(welcomeText));
       await next();
     });
+  }
+
+  // Add a message to the conversation history
+  addMessageToHistory(conversationId, message) {
+    if (!this.conversationHistory.has(conversationId)) {
+      this.conversationHistory.set(conversationId, []);
+    }
+
+    const history = this.conversationHistory.get(conversationId);
+    history.push(message);
+
+    // Trim history to keep only the most recent messages
+    if (history.length > this.MESSAGE_RETENTION_COUNT) {
+      this.conversationHistory.set(
+        conversationId,
+        history.slice(history.length - this.MESSAGE_RETENTION_COUNT)
+      );
+    }
+  }
+
+  // Get conversation history for a specific conversation
+  getConversationHistory(conversationId) {
+    return this.conversationHistory.get(conversationId) || [];
   }
 
   async getToken(connectorClient) {
@@ -216,15 +288,30 @@ class BotActivityHandler extends TeamsActivityHandler {
     activity.text += `${activity.entities.map((entity) => entity.text)} - Could you please help with this query?`;
 
     // Add the query text after mentions
-
     await context.sendActivity(activity);
+
+    // Store the error response in conversation history
+    this.addMessageToHistory(context.activity.conversation.id, {
+      role: 'assistant',
+      content: errorMsg,
+      timestamp: Date.now()
+    });
   }
 
   async cleanupOldConversations() {
+    // This method now focuses on removing old conversations entirely
+    // rather than trimming individual messages (which is handled by addMessageToHistory)
+    const CONVERSATION_RETENTION_MS = 24 * 60 * 60 * 1000; // 24 hours
     const currentTime = Date.now();
+
     for (const [conversationId, history] of this.conversationHistory.entries()) {
+      if (history.length === 0) {
+        this.conversationHistory.delete(conversationId);
+        continue;
+      }
+
       const lastMessageTime = Math.max(...history.map(msg => msg.timestamp));
-      if (currentTime - lastMessageTime > this.MESSAGE_RETENTION) {
+      if (currentTime - lastMessageTime > CONVERSATION_RETENTION_MS) {
         this.conversationHistory.delete(conversationId);
       }
     }
