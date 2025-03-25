@@ -66,6 +66,9 @@ class BotActivityHandler extends TeamsActivityHandler {
       });
 
       try {
+        // Show typing indicator immediately
+        await context.sendActivity({ type: 'typing' });
+
         // Calculate a random delay between min and max values
         const responseDelay = Math.floor(
           Math.random() * (this.RESPONSE_DELAY_MAX - this.RESPONSE_DELAY_MIN + 1) + this.RESPONSE_DELAY_MIN
@@ -186,13 +189,6 @@ class BotActivityHandler extends TeamsActivityHandler {
 
         const response = completion.choices[0].message.content;
 
-        // Store the bot's response in conversation history
-        this.addMessageToHistory(context.activity.conversation.id, {
-          role: 'assistant',
-          content: response,
-          timestamp: Date.now()
-        });
-
         if (response === 'NO_ANSWER') {
           // Translate error message if needed
           if (detectedLanguage !== 'en') {
@@ -211,8 +207,29 @@ class BotActivityHandler extends TeamsActivityHandler {
             await this.handleErrorResponse(context, null, true);
           }
         } else {
-          await context.sendActivity(MessageFactory.text(response));
+          // Create activity with proper mention format for the user who asked the question
+          const activity = MessageFactory.text("");
+          activity.entities = [{
+            "type": "mention",
+            "text": `<at>${new TextEncoder().encode(context.activity.from.name)}</at>`,
+            "mentioned": {
+              "id": context.activity.from.id,
+              "name": context.activity.from.name
+            }
+          }];
+
+          // Add the mention and the response
+          activity.text = `${activity.entities[0].text} ${response}`;
+
+          await context.sendActivity(activity);
         }
+
+        // Store the bot's response in conversation history
+        this.addMessageToHistory(context.activity.conversation.id, {
+          role: 'assistant',
+          content: response,
+          timestamp: Date.now()
+        });
 
         // Clean up old conversations periodically
         this.cleanupOldConversations();
