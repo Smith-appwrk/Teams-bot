@@ -211,7 +211,7 @@ class BotActivityHandler extends TeamsActivityHandler {
           const activity = MessageFactory.text("");
           activity.entities = [{
             "type": "mention",
-            "text": `<at>${new TextEncoder().encode(context.activity.from.name)}</at>`,
+            "text": `<at>${context.activity.from.name}</at>`,
             "mentioned": {
               "id": context.activity.from.id,
               "name": context.activity.from.name
@@ -295,7 +295,7 @@ class BotActivityHandler extends TeamsActivityHandler {
     const activity = MessageFactory.text(`${errorMsg}\n\n`);
     activity.entities = SUPPORT_USERS.map((user) => ({
       "type": "mention",
-      "text": `<at>${new TextEncoder().encode(user.name)}</at>`,
+      "text": `<at>${user.name}</at>`,
       "mentioned": {
         "id": user.email,// User Principle Name
         "name": user.name
