@@ -9,6 +9,16 @@
   - Hold mobile camera steady in front of QR code until a link popup appears
   - Try using Google Lens as an alternative (access via Google.com camera icon)
 
+### How to scan QR code?
+- Look for google bar on phone and click on google lens
+- Hold camera steady in front of QR code until a link popup appears
+- Application will be opened
+
+### Getting a blank screen after licence Scan
+- Please follow the steps on 'how to scan the QR code?'
+- If still facing an issue, it might be due to network coverage
+- Check with gate agent who can help with your registration
+
 ### Registration Options
 
 #### Coming In Options
@@ -38,14 +48,40 @@
 
 #### Finding inbound load number
 - Check BOL document (number typically starts with 019)
+- You can also enter shipment number starting with 034
 - Contact Gate agent if unable to find
+
+#### Getting shipment number not valid error
+- Recheck if the site selected is correct
+- Check if scenario selection is correct
+- If still getting invalid value, reach out to Gate Agent
+
+#### Getting 'Can not allow early check in' error
+- You will see details of what time the appointment is scheduled
+- You will not be able to register until the time mentioned in the message
+
+#### Getting Preferred trailer not valid error
+- Recheck the trailer number entered
+- It means there is no trailer present in the yard with the provided preferred trailer
+
+#### Getting no Empty Trailer number available
+- It means that there are no empty trailers available for the carrier company to take out
 
 #### License validation issues
 - Check license validity
 - Contact gate agent for further instructions
 
+#### How to scan driver's Licence?
+- Allow the camera access to browser
+- Scan the front side of licence
+- Scan the back side of licence
+- Allow some time to get the licence scanned
+- Once completed, your details will be populated
+
 #### Timeout during license scan
+- It might be due to network issue
 - Select 'unable to scan' to enter details manually
+- Reach out to Gate Agent for bypass code
 
 #### OTP not received
 - Check mobile network signal
@@ -57,6 +93,7 @@
 - System asks for Employee ID and last 4 digits of license for fast pass process
 - Get credentials from carrier company
 - Click 'skip login' to proceed with license scan process
+- If you have tablet mounted on your truck, you will receive OTP on your tablet
 
 ## Validator Questions
 
@@ -66,6 +103,10 @@
 - If driver cannot scan QR code:
   - Ask driver to use Google Lens
   - Help driver register from your tab if needed
+
+### How to check the site selected by Driver
+- Check on right side top corner for the site selected
+- Ask the driver to go back and change site if wrong site is selected
 
 ### Application Issues
 
@@ -99,6 +140,12 @@
 - Ask driver to register as "empty to empty live"
 - Confirm which door to proceed to for rework
 
+#### Driver is overweight but not checked out yet
+- Check with workflow team to send the driver for rework
+- Ask the driver to go to that door
+- Search the O/B trailer number in yard check & update yard location
+- Send ad hoc message to the driver if needed
+
 #### Incorrect preferred trailer
 - Check if driver registered with preferred trailer option
 - Verify trailer is in Yard (not at 'ANYWHERE' location)
@@ -113,27 +160,17 @@
 - Find trailer history:
   - Go to 'trailer activity' page and filter by trailer number
 
-## Common Error Messages
+### How to update the user?
+1. Go to control panel --> Users new
+2. Search with the username
+3. Click on Edit (Pencil Symbol)
+4. Make the updates and save
 
-### "Trailer number not matching with Seal number"
-1. Physically check seal on trailer
-2. Go to Yard check page, search trailer number
-3. Update correct seal in yard check page
-4. Proceed with Check-out
+## Check In Issues
 
 ### "Error missing argument: new Yard Loc"
 - Location not assigned to driver
 - Check with IG support team
-
-### "The inventory's status is not a valid status for the outbound order's progression"
-- Inventory for load is on hold
-- Check with workflow team regarding inventory status
-- Proceed after confirmation from workflow team
-
-### "Invalid Equipment Status"
-- Trailer status in BY is different than expected
-- Check with workflow team
-- Proceed after confirmation
 
 ### "ERROR NO TEXT FOUND"
 - Error in BY system
@@ -145,6 +182,45 @@
   - For loaded: I/B trailer number, I/B SCAC and I/B load numbers required
   - Edit and add missing attributes
 
+### "504 timeout error"
+- Connection issue between IntelliGate and WMS
+- Raise issue with UL IT team
+
+### "Can not change transport equipment once loading has started error"
+- Driver is trying to register for a live appointment, but workflow team has already loaded or started loading on a different trailer
+- Connect with workflow team to check on next steps
+
+### Trailer Status is empty in IG but loaded in BY
+- Get confirmation from yard jockey regarding the status of the trailer
+- If trailer is loaded, identify the load attached to it
+- Ask workflow team to attach the load to the trailer
+- If issues persist, connect with UL IT support team
+
+## Check Out Issues
+
+### "Different tractor or Trailer number was registered at the time of Check in"
+1. Check the trailer number and tractor number in active driver
+2. Search the driver in driver history and check if details were updated after check-in
+3. If yes, change the tractor number in active driver
+4. Search the trailer in trailer activity to check if it is dispatched
+5. If the trailer is dispatched from BY, connect with UL IT team to revert the dispatch
+
+### "Trailer number not matching with Seal number"
+1. Physically check seal on trailer
+2. Go to Yard check page, search trailer number
+3. Update correct seal in yard check page
+4. Proceed with Check-out
+
+### "The inventory's status is not a valid status for the outbound order's progression"
+- Inventory for load is on hold
+- Check with workflow team regarding inventory status
+- Proceed after confirmation from workflow team
+
+### "Invalid Equipment Status"
+- Trailer status in BY is different than expected
+- Check with workflow team
+- Proceed after confirmation
+
 ### "Trailer you are trying to pick up does not contain outbound load XXXX"
 - Mismatch between trailer load and registered O/B load
 - Check O/B load in active driver screen
@@ -154,12 +230,8 @@
 - Connect with customer support to correct carrier with correct SCAC
 - Update load number, I/B & O/B SCACs in active driver
 
-### "504 timeout error"
-- Connection issue between IntelliGate and WMS
-- Raise issue with UL IT team
-
-### "Error missing argument: new-yard-loc"
-- System has run out of locations to assign
+### "UC_TRLR_DISP_SELF_DRVR error"
+- This is a system MOCA error
 - Check with UL IT team
 
 ## Work Queue Team
@@ -170,6 +242,23 @@
 3. Click on Edit (Pencil Icon)
 4. Update Trailer Condition
 5. Provide reason and save
+
+### Common Issues
+- Trailer and truck incorrect
+- Incorrect scenario selected by driver
+- Wrong reference selected
+- Rename incorrect trailer number from yard check
+- Active move on trailer - ask spotter or work queue to complete move
+- Trailer is at door - reach out to work queue to move trailer to yard
+- Empty trailer not available - change the scenario
+- Trailer note not captured when marking trailer as damaged
+- Want to reserve Empty during check in - add in trailer note
+- Appointment type incorrect live/drop - reach out to customer service
+- Driver entered incorrect trailer number for checkout
+- Driver entered outgoing trailer different from system assigned trailer
+- Driver selected incorrect outgoing scenario
+- Create immediate move for spotters
+- Communicating with spotter for completing yard move
 
 ## Spotter Questions
 
@@ -188,3 +277,11 @@
 ### Trailer present but not in system
 - Inform welcome centre team
 - They will create the trailer in the system
+
+### Trailer present physically at location not matching with system
+1. Open Yard Check
+2. Look for the location
+3. Click on update
+4. Click on "Update Other Attributes"
+5. Click on Swap Trailer
+6. Provide the trailer number which is physically present at the location
