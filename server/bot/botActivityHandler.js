@@ -30,11 +30,12 @@ class BotActivityHandler extends TeamsActivityHandler {
     this.conversationHistory = new Map();
 
     // Set message retention count (how many messages to keep per conversation)
-    this.MESSAGE_RETENTION_COUNT = 20;
+    this.MESSAGE_RETENTION_COUNT = parseInt(process.env.MESSAGE_RETENTION_COUNT || "20");
 
     // Set response delay in milliseconds (15-20 seconds)
-    this.RESPONSE_DELAY_MIN = 15000;
-    this.RESPONSE_DELAY_MAX = 20000;
+    this.RESPONSE_DELAY_MIN = parseInt(process.env.RESPONSE_DELAY_MIN || "15000");
+    this.RESPONSE_DELAY_MAX = parseInt(process.env.RESPONSE_DELAY_MAX || "20000");
+
 
     // Load IntelliGate FAQ content
     const intelligateContent = fs.readFileSync(
@@ -81,6 +82,9 @@ class BotActivityHandler extends TeamsActivityHandler {
 
         // Wait for the calculated delay
         await new Promise(resolve => setTimeout(resolve, responseDelay));
+
+         // Show typing indicator after delay
+         await context.sendActivity({ type: 'typing' });
 
         let userQuery;
 
@@ -202,9 +206,6 @@ class BotActivityHandler extends TeamsActivityHandler {
 
           userQuery = message;
         }
-
-        // Show typing indicator immediately
-        await context.sendActivity({ type: 'typing' });
 
         // Get conversation history for context
         const conversationMessages = this.getConversationHistory(context.activity.conversation.id);
