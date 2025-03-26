@@ -1,5 +1,5 @@
 ---
-page_type: sample
+page_type: Intelligate bot
 description: This bot can capture all channel messages in Teams using RSC permissions, without the need for @mentions.
 products:
 - office-teams
