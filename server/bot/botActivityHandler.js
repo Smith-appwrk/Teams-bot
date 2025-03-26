@@ -44,30 +44,35 @@ class BotActivityHandler extends TeamsActivityHandler {
 
     // Activity called when there's a message in channel
     this.onMessage(async (context, next) => {
-      // Check if message is from allowed users or bot is mentioned
-      const isMentioned = context.activity.entities?.some(entity =>
-        entity.type === 'mention' &&
-        entity.mentioned.id === context.activity.recipient.id
-      );
-
-      if (!REPLY_TO.includes(context.activity.from.name.toLowerCase().replaceAll(' ', '')) && !isMentioned) {
-        return;
-      }
-
-      const removedMentionText = TurnContext.removeRecipientMention(context.activity);
-      const message = removedMentionText || context.activity.text;
-
-      // Store the incoming message in conversation history
-      this.addMessageToHistory(context.activity.conversation.id, {
-        role: 'user',
-        name: context.activity.from.name,
-        content: message,
-        timestamp: Date.now()
-      });
-
       try {
-        // Show typing indicator immediately
-        await context.sendActivity({ type: 'typing' });
+        // Log incoming message
+        console.log({
+          type: 'MessageReceived',
+          from: context.activity.from.name,
+          text: context.activity.text,
+          timestamp: new Date().toISOString()
+        });
+
+        // Check if message is from allowed users or bot is mentioned
+        const isMentioned = context.activity.entities?.some(entity =>
+          entity.type === 'mention' &&
+          entity.mentioned.id === context.activity.recipient.id
+        );
+
+        if (!REPLY_TO.includes(context.activity.from.name.toLowerCase().replaceAll(' ', '')) && !isMentioned) {
+          return;
+        }
+
+        const removedMentionText = TurnContext.removeRecipientMention(context.activity);
+        const message = removedMentionText || context.activity.text;
+
+        // Store the incoming message in conversation history
+        this.addMessageToHistory(context.activity.conversation.id, {
+          role: 'user',
+          name: context.activity.from.name,
+          content: message,
+          timestamp: Date.now()
+        });
 
         // Calculate a random delay between min and max values
         const responseDelay = Math.floor(
@@ -93,6 +98,14 @@ class BotActivityHandler extends TeamsActivityHandler {
         });
 
         const detectedLanguage = languageDetection.choices[0].message.content.toLowerCase();
+
+        // After language detection
+        console.log({
+          type: 'LanguageDetected',
+          language: detectedLanguage,
+          messageId: context.activity.id,
+          timestamp: new Date().toISOString()
+        });
 
         // Check if message contains an image
         if (context.activity.attachments?.length > 0 &&
@@ -137,6 +150,20 @@ class BotActivityHandler extends TeamsActivityHandler {
           });
 
           userQuery = visionResponse.choices[0].message.content;
+
+          // For image processing
+          console.log({
+            type: 'ImageProcessing',
+            from: context.activity.from.name,
+            timestamp: new Date().toISOString()
+          });
+
+          // After vision analysis
+          console.log({
+            type: 'ImageAnalysisComplete',
+            extractedContent: userQuery,
+            timestamp: new Date().toISOString()
+          });
         } else {
           // First analyze if the message is a question or error report
           const intentAnalysis = await this.openai.chat.completions.create({
@@ -153,13 +180,31 @@ class BotActivityHandler extends TeamsActivityHandler {
 
           const messageIntent = intentAnalysis.choices[0].message.content;
 
+          // After intent analysis
+          console.log({
+            type: 'MessageIntent',
+            intent: messageIntent,
+            message: message,
+            from: context.activity.from.name,
+            timestamp: new Date().toISOString()
+          });
+
           // Only proceed if message is a question or error
           if (messageIntent === 'IGNORE' && !isMentioned) {
+            console.log({
+              type: 'MessageIgnored',
+              message: message,
+              from: context.activity.from.name,
+              timestamp: new Date().toISOString()
+            });
             return;
           }
 
           userQuery = message;
         }
+
+        // Show typing indicator immediately
+        await context.sendActivity({ type: 'typing' });
 
         // Get conversation history for context
         const conversationMessages = this.getConversationHistory(context.activity.conversation.id);
@@ -189,7 +234,14 @@ class BotActivityHandler extends TeamsActivityHandler {
 
         const response = completion.choices[0].message.content;
 
+        // After getting OpenAI response
         if (response === 'NO_ANSWER') {
+          console.log({
+            type: 'NoAnswer',
+            query: userQuery,
+            from: context.activity.from.name,
+            timestamp: new Date().toISOString()
+          });
           // Translate error message if needed
           if (detectedLanguage !== 'en') {
             const translatedError = await this.openai.chat.completions.create({
@@ -222,6 +274,14 @@ class BotActivityHandler extends TeamsActivityHandler {
           activity.text = `${activity.entities[0].text} ${response}`;
 
           await context.sendActivity(activity);
+
+          console.log({
+            type: 'AnswerProvided',
+            query: userQuery,
+            from: context.activity.from.name,
+            responseLength: response.length,
+            timestamp: new Date().toISOString()
+          });
         }
 
         // Store the bot's response in conversation history
@@ -234,15 +294,25 @@ class BotActivityHandler extends TeamsActivityHandler {
         // Clean up old conversations periodically
         this.cleanupOldConversations();
       } catch (error) {
-        console.error('OpenAI API error:', error);
+        console.error({
+          type: 'Error',
+          error: error.message,
+          stack: error.stack,
+          timestamp: new Date().toISOString()
+        });
         await this.handleErrorResponse(context, error);
       }
 
       await next();
     });
 
-    // Called when the bot is added to a team.
+    // Track when bot is added to a team
     this.onMembersAdded(async (context, next) => {
+      console.log({
+        teamId: context.activity.channelData?.team?.id,
+        addedBy: context.activity.from.id
+      }, 'BotAddedToTeam');
+
       var welcomeText = "Hello and welcome! I am your assistant for IntelliGate support. Please mention me with your query and I will do my best to help you. If I am unable to assist, I will notify our support team.";
       await context.sendActivity(MessageFactory.text(welcomeText));
       await next();
@@ -251,6 +321,12 @@ class BotActivityHandler extends TeamsActivityHandler {
 
   // Add a message to the conversation history
   addMessageToHistory(conversationId, message) {
+    console.log({
+      type: 'MessageHistoryUpdate',
+      conversationId,
+      messageType: message.role,
+      timestamp: new Date().toISOString()
+    });
     if (!this.conversationHistory.has(conversationId)) {
       this.conversationHistory.set(conversationId, []);
     }
@@ -281,12 +357,25 @@ class BotActivityHandler extends TeamsActivityHandler {
       }
       throw new Error('Unable to obtain token from connector client');
     } catch (err) {
-      console.error('Error getting token:', err);
+      console.error({
+        type: 'TokenError',
+        error: err.message,
+        stack: err.stack,
+        timestamp: new Date().toISOString()
+      });
       throw err;
     }
   }
 
   async handleErrorResponse(context, error, isNoAnswer = false, translatedMessage = null) {
+    console.error({
+      type: 'ErrorResponse',
+      isNoAnswer,
+      error: error?.message,
+      stack: error?.stack,
+      from: context.activity.from.name,
+      timestamp: new Date().toISOString()
+    });
     const errorMsg = isNoAnswer ?
       (translatedMessage || "I don't have information about that in my knowledge base. Let me notify our support team.") :
       "Sorry, I encountered an error processing your request. Let me notify our support team.";
@@ -316,6 +405,14 @@ class BotActivityHandler extends TeamsActivityHandler {
   }
 
   async cleanupOldConversations() {
+    const deletedCount = Array.from(this.conversationHistory.entries())
+      .filter(([_, history]) => history.length === 0).length;
+
+    console.log({
+      type: 'ConversationCleanup',
+      deletedConversations: deletedCount,
+      timestamp: new Date().toISOString()
+    });
     // This method now focuses on removing old conversations entirely
     // rather than trimming individual messages (which is handled by addMessageToHistory)
     const CONVERSATION_RETENTION_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -324,15 +421,9 @@ class BotActivityHandler extends TeamsActivityHandler {
     for (const [conversationId, history] of this.conversationHistory.entries()) {
       if (history.length === 0) {
         this.conversationHistory.delete(conversationId);
-        continue;
-      }
-
-      const lastMessageTime = Math.max(...history.map(msg => msg.timestamp));
-      if (currentTime - lastMessageTime > CONVERSATION_RETENTION_MS) {
-        this.conversationHistory.delete(conversationId);
       }
     }
   }
 }
 
-module.exports.BotActivityHandler = BotActivityHandler;
+module.exports = { BotActivityHandler };
