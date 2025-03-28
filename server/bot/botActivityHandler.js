@@ -36,7 +36,6 @@ class BotActivityHandler extends TeamsActivityHandler {
     this.RESPONSE_DELAY_MIN = parseInt(process.env.RESPONSE_DELAY_MIN || "15000");
     this.RESPONSE_DELAY_MAX = parseInt(process.env.RESPONSE_DELAY_MAX || "20000");
 
-
     // Load IntelliGate FAQ content
     const intelligateContent = fs.readFileSync(
       path.join(__dirname, '../data/intelligate.md'),
@@ -82,9 +81,6 @@ class BotActivityHandler extends TeamsActivityHandler {
 
         // Wait for the calculated delay
         await new Promise(resolve => setTimeout(resolve, responseDelay));
-
-         // Show typing indicator after delay
-         await context.sendActivity({ type: 'typing' });
 
         let userQuery;
 
@@ -207,6 +203,12 @@ class BotActivityHandler extends TeamsActivityHandler {
           userQuery = message;
         }
 
+        // Wait for the 3s delay before showing typing indicator
+        await new Promise(resolve => setTimeout(resolve, 3000));
+
+        // Show typing indicator after delay
+        await context.sendActivity({ type: 'typing' });
+
         // Get conversation history for context
         const conversationMessages = this.getConversationHistory(context.activity.conversation.id);
 
@@ -222,7 +224,7 @@ class BotActivityHandler extends TeamsActivityHandler {
             role: "system",
             content: `You are an IntelliGate support assistant. Use only the following knowledge base to answer questions. If the detected language is not English, translate your response to ${detectedLanguage}. Knowledge base:\n\n${intelligateContent}\n\nIf you cannot find a relevant answer in the knowledge base, respond with exactly: NO_ANSWER`
           },
-          ...formattedHistory,
+          ...(formattedHistory.length > 0 ? [...formattedHistory] : [{ role: "assistant", content: "No previous messages" }]),
           { role: "user", content: userQuery }
         ];
 
