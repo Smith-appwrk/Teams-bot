@@ -1,6 +1,3 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-
 name: Build and deploy Node.js app to Azure Web App - intelligatdemo
 
 on:
@@ -18,31 +15,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 1  # Shallow clone for faster checkout
+          fetch-depth: 1
 
-      - name: Set up Node.js
+      - name: Set up Node.js and cache
         uses: actions/setup-node@v3
         with:
           node-version: '20.x'
-          cache: 'npm'  # Enable npm cache
-
-      - name: Update package-lock.json
-        run: npm install --package-lock-only
+          cache: 'npm'
 
       - name: Install dependencies
-        run: npm install  # Using regular install instead of ci
-
-      - name: Fix vulnerabilities
-        run: npm audit fix --force || true  # Try to fix vulnerabilities but don't fail if not all can be fixed
+        run: npm ci
 
       - name: Build
         run: npm run build --if-present
 
       - name: Optimize for production
         run: |
-          # Remove development dependencies and files not needed in production
           npm prune --production
-          rm -rf .git .github tests docs
+          find . -type d \( -name ".git" -o -name ".github" -o -name "tests" -o -name "docs" \) -exec rm -rf {} + 2>/dev/null || true
 
       - name: Stop existing deployment (if any)
         uses: azure/CLI@v1
@@ -50,7 +40,7 @@ jobs:
           inlineScript: |
             az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }} || true
             az webapp deployment source disconnect --name intelligatdemo --resource-group intelligatdemo-rg || true
-        continue-on-error: true  # Continue even if this step fails
+        continue-on-error: true
 
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
@@ -59,5 +49,5 @@ jobs:
           slot-name: 'Production'
           package: .
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_75920E9CA45544EFA050A41226019426 }}
-          clean: true  # Add this to clean up existing deployment
-          restart: true  # Restart the app after deployment
+          clean: true
+          restart: true
