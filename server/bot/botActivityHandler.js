@@ -1,40 +1,28 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-const { TeamsActivityHandler, MessageFactory, TurnContext } = require('botbuilder');
-const { OpenAI } = require('openai');
+const { TeamsActivityHandler } = require('botbuilder');
 const fs = require('fs');
 const path = require('path');
-const axios = require('axios');
-
-// Parse support users and reply to list from environment variables
-const SUPPORT_USERS = (process.env.SUPPORT_USERS || '').split(',').map(user => {
-  const [name, email] = user.split(':');
-  return { name, email };
-});
-
-const REPLY_TO = (process.env.REPLY_TO || '').split('|').map(name =>
-  name.toLowerCase().replaceAll(' ', '')
-);
+const CONFIG = require('./utils/config.js');
+const OpenAIService = require('./services/openaiService.js');
+const ConversationService = require('./services/conversationService.js');
+const ImageService = require('./services/imageService.js');
+const MessageHandler = require('./handlers/messageHandler.js');
 
 class BotActivityHandler extends TeamsActivityHandler {
   constructor() {
     super();
 
-    // Initialize OpenAI
-    this.openai = new OpenAI({
-      apiKey: process.env.SECRET_OPENAI_API_KEY
-    });
-
-    // Initialize conversation history storage
-    this.conversationHistory = new Map();
-
-    // Set message retention count (how many messages to keep per conversation)
-    this.MESSAGE_RETENTION_COUNT = parseInt(process.env.MESSAGE_RETENTION_COUNT || "20");
-
-    // Set response delay in milliseconds (15-20 seconds)
-    this.RESPONSE_DELAY_MIN = parseInt(process.env.RESPONSE_DELAY_MIN || "15000");
-    this.RESPONSE_DELAY_MAX = parseInt(process.env.RESPONSE_DELAY_MAX || "20000");
+    // Initialize services
+    this.openaiService = new OpenAIService(CONFIG.OPENAI_API_KEY);
+    this.conversationService = new ConversationService(CONFIG.MESSAGE_RETENTION_COUNT);
+    this.imageService = new ImageService();
+    this.messageHandler = new MessageHandler(
+      this.openaiService,
+      this.conversationService,
+      this.imageService
+    );
 
     // Load IntelliGate FAQ content
     const intelligateContent = fs.readFileSync(
@@ -42,274 +30,12 @@ class BotActivityHandler extends TeamsActivityHandler {
       'utf8'
     );
 
-    // Activity called when there's a message in channel
+    // Register handlers
     this.onMessage(async (context, next) => {
-      try {
-        // Log incoming message
-        console.log({
-          type: 'MessageReceived',
-          from: context.activity.from.name,
-          text: context.activity.text,
-          timestamp: new Date().toISOString()
-        });
-
-        // Check if message is from allowed users or bot is mentioned
-        const isMentioned = context.activity.entities?.some(entity =>
-          entity.type === 'mention' &&
-          entity.mentioned.id === context.activity.recipient.id
-        );
-
-        if (!REPLY_TO.includes(context.activity.from.name.toLowerCase().replaceAll(' ', '')) && !isMentioned) {
-          return;
-        }
-
-        const removedMentionText = TurnContext.removeRecipientMention(context.activity);
-        const message = removedMentionText || context.activity.text;
-
-        // Store the incoming message in conversation history
-        this.addMessageToHistory(context.activity.conversation.id, {
-          role: 'user',
-          name: context.activity.from.name,
-          content: message,
-          timestamp: Date.now()
-        });
-
-        // Calculate a random delay between min and max values
-        const responseDelay = Math.floor(
-          Math.random() * (this.RESPONSE_DELAY_MAX - this.RESPONSE_DELAY_MIN + 1) + this.RESPONSE_DELAY_MIN
-        );
-
-        // Wait for the calculated delay
-        await new Promise(resolve => setTimeout(resolve, responseDelay));
-
-        let userQuery;
-
-        // First detect the language
-        const languageDetection = await this.openai.chat.completions.create({
-          model: "gpt-3.5-turbo",
-          messages: [
-            {
-              role: "system",
-              content: "Detect the language of the following text and respond with the language code only (e.g., 'en' for English, 'es' for Spanish, etc.)"
-            },
-            { role: "user", content: message }
-          ],
-          temperature: 0.3,
-        });
-
-        const detectedLanguage = languageDetection.choices[0].message.content.toLowerCase();
-
-        // After language detection
-        console.log({
-          type: 'LanguageDetected',
-          language: detectedLanguage,
-          messageId: context.activity.id,
-          timestamp: new Date().toISOString()
-        });
-
-        // Check if message contains an image
-        if (context.activity.attachments?.length > 0 &&
-          context.activity.attachments[0].contentType.startsWith('image/')) {
-
-          // Get image URL and auth token
-          const imageUrl = context.activity.attachments[0].contentUrl;
-          const connectorClient = context.turnState.get(context.adapter.ConnectorClientKey);
-          const token = await this.getToken(connectorClient);
-
-          // Download image with auth
-          const response = await axios.get(imageUrl, {
-            responseType: 'arraybuffer',
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-
-          const base64Image = Buffer.from(response.data).toString('base64');
-
-          // Analyze image with Vision API
-          const visionResponse = await this.openai.chat.completions.create({
-            model: "gpt-4o",
-            messages: [
-              {
-                role: "user",
-                content: [
-                  {
-                    type: "text",
-                    text: "Please extract and return: 1) The exact question being asked in the form, and 2) Any error message shown. Format as: Question: [question text] Error: [error message]"
-                  },
-                  {
-                    type: "image_url",
-                    image_url: {
-                      url: `data:image/jpeg;base64,${base64Image}`
-                    }
-                  }
-                ]
-              }
-            ],
-            max_tokens: 300
-          });
-
-          userQuery = visionResponse.choices[0].message.content;
-
-          // For image processing
-          console.log({
-            type: 'ImageProcessing',
-            from: context.activity.from.name,
-            timestamp: new Date().toISOString()
-          });
-
-          // After vision analysis
-          console.log({
-            type: 'ImageAnalysisComplete',
-            extractedContent: userQuery,
-            timestamp: new Date().toISOString()
-          });
-        } else {
-          // First analyze if the message is a question or error report
-          const intentAnalysis = await this.openai.chat.completions.create({
-            model: "gpt-3.5-turbo",
-            messages: [
-              {
-                role: "system",
-                content: "Analyze if the given message is a question or error report. Respond with exactly: QUESTION, ERROR, or IGNORE. Examples: 'How do I...' -> QUESTION, 'I'm getting error...' -> ERROR, 'Good morning' -> IGNORE"
-              },
-              { role: "user", content: message }
-            ],
-            temperature: 0.5,
-          });
-
-          const messageIntent = intentAnalysis.choices[0].message.content;
-
-          // After intent analysis
-          console.log({
-            type: 'MessageIntent',
-            intent: messageIntent,
-            message: message,
-            from: context.activity.from.name,
-            timestamp: new Date().toISOString()
-          });
-
-          // Only proceed if message is a question or error
-          if (messageIntent === 'IGNORE' && !isMentioned) {
-            console.log({
-              type: 'MessageIgnored',
-              message: message,
-              from: context.activity.from.name,
-              timestamp: new Date().toISOString()
-            });
-            return;
-          }
-
-          userQuery = message;
-        }
-
-        // Wait for the 3s delay before showing typing indicator
-        await new Promise(resolve => setTimeout(resolve, 3000));
-
-        // Show typing indicator after delay
-        await context.sendActivity({ type: 'typing' });
-
-        // Get conversation history for context
-        const conversationMessages = this.getConversationHistory(context.activity.conversation.id);
-
-        // Format conversation history for OpenAI
-        const formattedHistory = conversationMessages.map(msg => ({
-          role: msg.role === 'user' ? 'user' : 'assistant',
-          content: msg.content
-        }));
-
-        // Prepare messages array with system prompt and conversation history
-        const messagesForCompletion = [
-          {
-            role: "system",
-            content: `You are an IntelliGate support assistant. Use only the following knowledge base to answer questions. If the detected language is not English, translate your response to ${detectedLanguage}. Knowledge base:\n\n${intelligateContent}\n\nIf you cannot find a relevant answer in the knowledge base, respond with exactly: NO_ANSWER`
-          },
-          ...(formattedHistory.length > 0 ? [...formattedHistory] : [{ role: "assistant", content: "No previous messages" }]),
-          { role: "user", content: userQuery }
-        ];
-
-        // Get response from knowledge base and translate if needed
-        const completion = await this.openai.chat.completions.create({
-          model: "gpt-3.5-turbo",
-          messages: messagesForCompletion,
-          temperature: 0.7,
-        });
-
-        const response = completion.choices[0].message.content;
-
-        // After getting OpenAI response
-        if (response === 'NO_ANSWER') {
-          console.log({
-            type: 'NoAnswer',
-            query: userQuery,
-            from: context.activity.from.name,
-            timestamp: new Date().toISOString()
-          });
-          // Translate error message if needed
-          if (detectedLanguage !== 'en') {
-            const translatedError = await this.openai.chat.completions.create({
-              model: "gpt-3.5-turbo",
-              messages: [
-                {
-                  role: "system",
-                  content: `Translate the following text to ${detectedLanguage}: I don't have information about that in my knowledge base. Let me notify our support team.`
-                }
-              ],
-              temperature: 0.3,
-            });
-            await this.handleErrorResponse(context, null, true, translatedError.choices[0].message.content);
-          } else {
-            await this.handleErrorResponse(context, null, true);
-          }
-        } else {
-          // Create activity with proper mention format for the user who asked the question
-          const activity = MessageFactory.text("");
-          activity.entities = [{
-            "type": "mention",
-            "text": `<at>${context.activity.from.name}</at>`,
-            "mentioned": {
-              "id": context.activity.from.id,
-              "name": context.activity.from.name
-            }
-          }];
-
-          // Add the mention and the response
-          activity.text = `${activity.entities[0].text} ${response}`;
-
-          await context.sendActivity(activity);
-
-          console.log({
-            type: 'AnswerProvided',
-            query: userQuery,
-            from: context.activity.from.name,
-            responseLength: response.length,
-            timestamp: new Date().toISOString()
-          });
-        }
-
-        // Store the bot's response in conversation history
-        this.addMessageToHistory(context.activity.conversation.id, {
-          role: 'assistant',
-          content: response,
-          timestamp: Date.now()
-        });
-
-        // Clean up old conversations periodically
-        this.cleanupOldConversations();
-      } catch (error) {
-        console.error({
-          type: 'Error',
-          error: error.message,
-          stack: error.stack,
-          timestamp: new Date().toISOString()
-        });
-        await this.handleErrorResponse(context, error);
-      }
-
+      await this.messageHandler.handleMessage(context, intelligateContent);
       await next();
     });
 
-    // Track when bot is added to a team
     this.onMembersAdded(async (context, next) => {
       console.log({
         teamId: context.activity.channelData?.team?.id,
@@ -320,112 +46,6 @@ class BotActivityHandler extends TeamsActivityHandler {
       await context.sendActivity(MessageFactory.text(welcomeText));
       await next();
     });
-  }
-
-  // Add a message to the conversation history
-  addMessageToHistory(conversationId, message) {
-    console.log({
-      type: 'MessageHistoryUpdate',
-      conversationId,
-      messageType: message.role,
-      timestamp: new Date().toISOString()
-    });
-    if (!this.conversationHistory.has(conversationId)) {
-      this.conversationHistory.set(conversationId, []);
-    }
-
-    const history = this.conversationHistory.get(conversationId);
-    history.push(message);
-
-    // Trim history to keep only the most recent messages
-    if (history.length > this.MESSAGE_RETENTION_COUNT) {
-      this.conversationHistory.set(
-        conversationId,
-        history.slice(history.length - this.MESSAGE_RETENTION_COUNT)
-      );
-    }
-  }
-
-  // Get conversation history for a specific conversation
-  getConversationHistory(conversationId) {
-    return this.conversationHistory.get(conversationId) || [];
-  }
-
-  async getToken(connectorClient) {
-    try {
-      if (connectorClient && connectorClient.credentials) {
-        const credentials = connectorClient.credentials;
-        const token = await credentials.getToken();
-        return token;
-      }
-      throw new Error('Unable to obtain token from connector client');
-    } catch (err) {
-      console.error({
-        type: 'TokenError',
-        error: err.message,
-        stack: err.stack,
-        timestamp: new Date().toISOString()
-      });
-      throw err;
-    }
-  }
-
-  async handleErrorResponse(context, error, isNoAnswer = false, translatedMessage = null) {
-    console.error({
-      type: 'ErrorResponse',
-      isNoAnswer,
-      error: error?.message,
-      stack: error?.stack,
-      from: context.activity.from.name,
-      timestamp: new Date().toISOString()
-    });
-    const errorMsg = isNoAnswer ?
-      (translatedMessage || "I don't have information about that in my knowledge base. Let me notify our support team.") :
-      "Sorry, I encountered an error processing your request. Let me notify our support team.";
-
-    // Create activity with proper mention format
-    const activity = MessageFactory.text(`${errorMsg}\n\n`);
-    activity.entities = SUPPORT_USERS.map((user) => ({
-      "type": "mention",
-      "text": `<at>${user.name}</at>`,
-      "mentioned": {
-        "id": user.email,// User Principle Name
-        "name": user.name
-      }
-    }));
-
-    activity.text += `${activity.entities.map((entity) => entity.text)} - Could you please help with this query?`;
-
-    // Add the query text after mentions
-    await context.sendActivity(activity);
-
-    // Store the error response in conversation history
-    this.addMessageToHistory(context.activity.conversation.id, {
-      role: 'assistant',
-      content: errorMsg,
-      timestamp: Date.now()
-    });
-  }
-
-  async cleanupOldConversations() {
-    const deletedCount = Array.from(this.conversationHistory.entries())
-      .filter(([_, history]) => history.length === 0).length;
-
-    console.log({
-      type: 'ConversationCleanup',
-      deletedConversations: deletedCount,
-      timestamp: new Date().toISOString()
-    });
-    // This method now focuses on removing old conversations entirely
-    // rather than trimming individual messages (which is handled by addMessageToHistory)
-    const CONVERSATION_RETENTION_MS = 24 * 60 * 60 * 1000; // 24 hours
-    const currentTime = Date.now();
-
-    for (const [conversationId, history] of this.conversationHistory.entries()) {
-      if (history.length === 0) {
-        this.conversationHistory.delete(conversationId);
-      }
-    }
   }
 }
 
