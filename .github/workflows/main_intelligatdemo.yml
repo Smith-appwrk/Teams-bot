@@ -26,8 +26,11 @@ jobs:
           node-version: '20.x'
           cache: 'npm'  # Enable npm cache
 
+      - name: Update package-lock.json
+        run: npm install --package-lock-only
+
       - name: Install dependencies
-        run: npm ci  # Faster than npm install for CI environments
+        run: npm install  # Using regular install instead of ci
 
       - name: Build
         run: npm run build --if-present
