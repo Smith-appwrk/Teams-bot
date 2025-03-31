@@ -28,7 +28,7 @@ class OpenAIService {
             messages: [
                 {
                     role: "system",
-                    content: "Analyze if the given message is a question or error report. Respond with exactly: QUESTION, ERROR, or IGNORE. Examples: 'How do I...' -> QUESTION, 'I'm getting error...' -> ERROR, 'Good morning' -> IGNORE"
+                    content: "Analyze if the given message is a question or error or RELATED_STATEMENT or can be ignored. Respond with exactly: QUESTION, ERROR, RELATED_STATEMENT or IGNORE. Examples: 'How do I...' -> QUESTION, 'I'm getting error...' -> ERROR, 'Any info regarding warehouse checkin checkout yard, validator, containg PIN, password etc' ->  RELATED_STATEMENT, 'Good morning, any general convo that seams is not asked or given to bot just some people interacting with each other' -> IGNORE"
                 },
                 { role: "user", content: message }
             ],
@@ -42,7 +42,9 @@ class OpenAIService {
         const completion = await this.openai.chat.completions.create({
             model: CONFIG.OPENAI_MODEL,
             messages,
-            temperature: CONFIG.RESPONSE_TEMPERATURE,
+            temperature: CONFIG.RESPONSE_TEMPERATURE,  // Controls randomness (lower = more predictable)
+            frequency_penalty: CONFIG.COMPLETION_FREQUENCY_PENALTY,  // Discourages repetition
+            presence_penalty: CONFIG.COMPLETION_PRESENCE_PENALTY
         });
 
         return completion.choices[0].message.content;

@@ -285,3 +285,78 @@
 4. Click on "Update Other Attributes"
 5. Click on Swap Trailer
 6. Provide the trailer number which is physically present at the location
+
+
+#### Some fixed questions and answers ####
+
+What is the status of load <3452342>
+-This load is <15>% loaded, it will take another 2 hours to complete Loading, Thank you for your patience.
+------------
+		when is appointment for this load <3466678>
+		-It is scheduled for tomorrow <1:30 AM EST>.
+------------
+		Can you change appointment to now.
+		-Sure, i can do that, please enter secret pin to change appointment time.
+------------
+		I don't have any pin 
+		-Ok You are not Authorized to make changes, please talk to gate agent for assistnace.
+------------		
+		PIN is <1001>
+		-This is not a valid PIN.
+------------		
+		ok try this, 1002
+		-Success, Appointment for your load is updated!!
+------------
+ 
+is ANSH a valid SCAC?
+-Yes ANSH stands for Alliance Carrier Company, it is valid in my knowledge base.
+------------
+what about XXXX
+-Sorry, XXXX is not a valid scac.
+ 
+ 
+----------------
+ 
+How many appointments we are left for today.
+-We had 12 appointments scheduled for today. Out of which 11 are still pending.
+ 
+----------------
+ 
+how many out of service trailers we have?
+-We have total 2 OOS trailers sitting in our yard.
+-----------------
+can you provide details
+-Sure, here are the detail.
+	EMHU102033 Arrived At: 28th March, 2025
+	JBHU778400 Arrived At: 25th March, 2025
+ 
+----------------
+ 
+send me email of all empty trailer
+-Currently i am not configured to send email alerts.
+ 
+----------------
+ 
+How many empty trailer we have for PMDT
+-Currently we have 3 PMDT trailers in our yard.
+----------------------
+Do we have any empty trailer for SHAF to give to driver.
+-We have 2 empty trailer for SHAF but we need them to fulfill outbound loads.
+ 
+-------------------
+What is total detention charges build last month
+-As per my calculation in the month of March 2025, we incurred 1230 USD in detention cost.
+ 
+-------------------
+Who is the highest contributor
+-ANSH drivers contributed most in building detention charges.
+ 
+-------------------
+whats the demurrage cost for trailer <3352266>
+-Total calculated charges are 250 USD.
+here is how it is calculated.
+0 to 2 days- Free
+3 to 5 days- 50 USD Per day
+6 to 9 days- 100 USD Per day
+ 
+Total days in Yard was 6 days.
