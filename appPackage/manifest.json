@@ -10,8 +10,8 @@
     "termsOfUseUrl": "https://www.microsoft.com/termsofuse"
   },
   "name": {
-    "short": "IntelliGate AI Agent",
-    "full": "IntelliGate Support AI Assistant"
+    "short": "Vira",
+    "full": "Vira - Virtual Assistant"
   },
   "description": {
     "short": "AI-powered assistant for IntelliGate support and troubleshooting.",
@@ -33,7 +33,10 @@
     }
   ],
   "accentColor": "#60A18E",
-  "permissions": [ "identity", "messageTeamMembers" ],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
   "validDomains": [
     "${{BOT_DOMAIN}}",
     "token.botframework.com"
