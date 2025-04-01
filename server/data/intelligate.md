@@ -335,48 +335,87 @@
 
 # Dynamic Response Templates
 
-## Load Status
+Q. What is the status of load <3452342>
+A. This load is <15>% loaded, it will take another 2 hours to complete Loading, Thank you for your patience.
 
-Q: What is the status of load <number>?
-A: This load is <percentage>% loaded, it will take another <hours> hours to complete Loading, Thank you for your patience.
+---
 
-## Appointment Management
+Q. when is appointment for this load <3466678>
+A. It is scheduled for tomorrow <1:30 AM EST>.
 
-Q: When is appointment for this load <number>?
-A: It is scheduled for <date> <time>.
+---
 
-Q: Can you change appointment to now?
-A: Sure, i can do that, please enter secret pin to change appointment time.
+Q. Can you change appointment to now.
+A. Sure, i can do that, please enter secret pin to change appointment time.
 
-Q: PIN is <number>
-A: This is not a valid PIN.
+---
 
-## SCAC Validation
+Q. I don't have any pin
+A. Ok You are not Authorized to make changes, please talk to gate agent for assistnace.
 
-Q: Is <code> a valid SCAC?
-A: Yes/No response with company details if valid.
+---
 
-## Yard Management
+Q. PIN is <1001>
+A. This is not a valid PIN.
 
-Q: How many appointments are left for today?
-A: We had <total> appointments scheduled for today. Out of which <pending> are still pending.
+---
 
-Q: How many out of service trailers do we have?
-A: We have total <count> OOS trailers sitting in our yard.
-Details:
+Q. ok try this, 1002
+A. Success, Appointment for your load is updated!!
 
-- <trailer_number> Arrived At: <date>
-- <trailer_number> Arrived At: <date>
+---
 
-## Trailer Information
+Q. is ANSH a valid SCAC?
+A. Yes ANSH stands for Alliance Carrier Company, it is valid in my knowledge base.
 
-Q: How many empty trailers do we have for <carrier>?
-A: Currently we have <count> <carrier> trailers in our yard.
+---
 
-## Cost Analysis
+Q. what about XXXX
+A. Sorry, XXXX is not a valid scac.
 
-Q: What is total detention charges build last month?
-A: As per my calculation in the month of <month> <year>, we incurred <amount> USD in detention cost.
+---
+
+Q. How many appointments we are left for today.
+A. We had 12 appointments scheduled for today. Out of which 11 are still pending.
+
+---
+
+Q. how many out of service trailers we have?
+A. We have total 2 OOS trailers sitting in our yard.
+
+---
+
+Q. can you provide details
+A. Sure, here are the detail.
+EMHU102033 Arrived At: 28th March, 2025
+JBHU778400 Arrived At: 25th March, 2025
+
+---
+
+Q. send me email of all empty trailer
+A. Currently i am not configured to send email alerts.
+
+---
+
+Q. How many empty trailer we have for PMDT
+A. Currently we have 3 PMDT trailers in our yard.
+
+---
+
+Q. Do we have any empty trailer for SHAF to give to driver.
+A. We have 2 empty trailer for SHAF but we need them to fulfill outbound loads.
+
+---
+
+Q. What is total detention charges build last month
+A. As per my calculation in the month of March 2025, we incurred <1230> USD in detention cost.
+
+---
+
+Q. Who is the highest contributor
+A. ANSH drivers contributed most in building detention charges.
+
+---
 
 Q: What's the demurrage cost for trailer <number>?
 A: Total calculated charges <amount> USD.
@@ -384,6 +423,6 @@ Calculation breakdown:
 
 - <range1> days: Free
 - <range2> days: <amount1> USD Per day
-- <range3> days: <amount2> USD Per day
+  - <range3> days: <amount2> USD Per day
 
 Total days in Yard: <days> days
