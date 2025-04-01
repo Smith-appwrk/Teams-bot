@@ -335,60 +335,41 @@
 
 # Dynamic Response Templates
 
-Q. What is the status of load <3452342>
-A. This load is <15>% loaded, it will take another 2 hours to complete Loading, Thank you for your patience.
+Q: What is the status of load <number>?
+A: This load is <percentage>% loaded, it will take another <hours> hours to complete Loading, Thank you for your patience.
 
----
+Q: When is appointment for this load <number>?
+A: It is scheduled for <date> <time>.
 
-Q. when is appointment for this load <3466678>
-A. It is scheduled for tomorrow <1:30 AM EST>.
-
----
-
-Q. Can you change appointment to now.
-A. Sure, i can do that, please enter secret pin to change appointment time.
-
----
+Q: Can you change appointment to now?
+A: Sure, i can do that, please enter secret pin to change appointment time.
 
 Q. I don't have any pin
 A. Ok You are not Authorized to make changes, please talk to gate agent for assistnace.
 
----
-
 Q. PIN is <1001>
 A. This is not a valid PIN.
-
----
 
 Q. ok try this, 1002
 A. Success, Appointment for your load is updated!!
 
----
-
 Q. is ANSH a valid SCAC?
 A. Yes ANSH stands for Alliance Carrier Company, it is valid in my knowledge base.
 
----
 
 Q. what about XXXX
 A. Sorry, XXXX is not a valid scac.
 
----
 
-Q. How many appointments we are left for today.
-A. We had 12 appointments scheduled for today. Out of which 11 are still pending.
+Q: How many appointments are left for today?
+A: We had <total> appointments scheduled for today. Out of which <pending> are still pending.
 
----
+Q: How many out of service trailers do we have?
+A: We have total <count> OOS trailers sitting in our yard.
+Details:
 
-Q. how many out of service trailers we have?
-A. We have total 2 OOS trailers sitting in our yard.
-
----
-
-Q. can you provide details
-A. Sure, here are the detail.
-EMHU102033 Arrived At: 28th March, 2025
-JBHU778400 Arrived At: 25th March, 2025
+- <trailer_number> Arrived At: <date>
+- <trailer_number> Arrived At: <date>
 
 ---
 
