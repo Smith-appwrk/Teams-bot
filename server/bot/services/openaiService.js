@@ -105,7 +105,7 @@ class OpenAIService {
       User question: "${question}"
       
       Available images paths:
-      ${imageFilenames.map((name, index) => `${index + 1}. ${name}`).join('\n')}
+      ${imageFilenames.map((name) => `${name}`).join('\n')}
       
       Return the array of only and only matched images.
       `;
@@ -126,6 +126,7 @@ class OpenAIService {
         // Extract the indices from the response
         try {
           const responseContent = completion.choices[0].message.content;
+          console.log(responseContent);
           let selectedImages = JSON.parse(responseContent);
           
           return selectedImages.slice(0, maxImages).map((img) => imagePaths[img]);
