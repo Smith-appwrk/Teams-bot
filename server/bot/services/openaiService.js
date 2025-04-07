@@ -88,6 +88,53 @@ class OpenAIService {
 
         return visionResponse.choices[0].message.content;
     }
+
+    async findRelevantImages(question, imagePaths, maxImages = 3) {
+        if (!question || !imagePaths || imagePaths.length === 0) {
+          return [];
+        }
+      
+        // Extract just the filenames for better readability in the prompt
+        const imageFilenames = Object.keys(imagePaths)
+      
+        // Create a prompt for the LLM to understand the task
+        const prompt = `
+      I have a user question and a list of available image filenames. 
+      Select the images that is exact match for the question.
+      
+      User question: "${question}"
+      
+      Available images paths:
+      ${imageFilenames.map((name, index) => `${index + 1}. ${name}`).join('\n')}
+      
+      Return the array of only and only matched images.
+      `;
+      
+        // Call OpenAI to get the relevant image indices
+        const completion = await this.openai.chat.completions.create({
+          model: CONFIG.OPENAI_MODEL, // Use your configured model
+          messages: [
+            {
+              role: "system",
+              content: "You are a helpful assistant that matched images based on a user query."
+            },
+            { role: "user", content: prompt }
+          ],
+          temperature: 0.2, // Lower temperature for more consistent results
+        });
+      
+        // Extract the indices from the response
+        try {
+          const responseContent = completion.choices[0].message.content;
+          let selectedImages = JSON.parse(responseContent);
+          
+          return selectedImages.slice(0, maxImages).map((img) => imagePaths[img]);
+        } catch (error) {
+          console.error("Error parsing OpenAI response:", error);
+          return [];
+        }
+      }
+      
 }
 
 module.exports = OpenAIService; 

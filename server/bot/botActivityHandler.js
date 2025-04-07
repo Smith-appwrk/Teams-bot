@@ -40,7 +40,7 @@ class BotActivityHandler extends TeamsActivityHandler {
       const messageText = context.activity.text || '';
 
       // Find relevant images for the question (up to 3)
-      const imagePaths = this.findRelevantImages(messageText, 3);
+      const imagePaths = await this.openaiService.findRelevantImages(messageText, this.availableImages, 3);
 
       console.log('Found image paths:', imagePaths);
 
@@ -83,73 +83,6 @@ class BotActivityHandler extends TeamsActivityHandler {
 
     return imageMap;
   }
-
-  // Find relevant images for the given question
-  findRelevantImages(question, maxImages = 3) {
-    if (!question) return [];
-
-    // Convert question to lowercase for case-insensitive matching
-    const lowerQuestion = question.toLowerCase();
-
-    // Extract key topics from the question
-    const topics = this.extractTopics(lowerQuestion);
-
-    const matchedImages = [];
-
-    // Try to find exact matches first
-    for (const topic of topics) {
-      if (this.availableImages[topic]) {
-        matchedImages.push(this.availableImages[topic]);
-        if (matchedImages.length >= maxImages) return matchedImages;
-      }
-    }
-
-    // If we need more images, try partial matching
-    for (const [imageName, imagePath] of Object.entries(this.availableImages)) {
-      // Skip images we've already matched
-      if (matchedImages.includes(imagePath)) continue;
-
-      for (const topic of topics) {
-        if (imageName.includes(topic) || topic.includes(imageName)) {
-          matchedImages.push(imagePath);
-          if (matchedImages.length >= maxImages) return matchedImages;
-          break; // Move to next image after finding a match
-        }
-      }
-    }
-
-    return matchedImages;
-  }
-
-  // Extract potential topics from the question
-  extractTopics(question) {
-    // List of common topics from the knowledge base
-    const knownTopics = [
-      'qr code', 'qr', 'scan', 'license', 'licence', 'registration',
-      'trailer', 'carrier', 'empty', 'loaded', 'bobtail', 'pickup',
-      'shipment', 'error', 'check in', 'check out', 'yard', 'otp',
-      'employee id', 'validator', 'app', 'application', 'blank screen',
-      'overweight', 'seal', 'damaged', 'spotter'
-    ];
-
-    // Start with the whole question as a potential topic
-    const topics = [question];
-
-    // Add individual words as potential topics
-    const words = question.split(/\s+/).filter(word => word.length > 3);
-    topics.push(...words);
-
-    // Check for known topics in the question
-    for (const topic of knownTopics) {
-      if (question.includes(topic)) {
-        topics.push(topic);
-      }
-    }
-
-    return topics;
-  }
-
-  // Create a message with text and image attachment
 
 }
 

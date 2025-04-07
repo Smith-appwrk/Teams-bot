@@ -356,10 +356,8 @@ A. Success, Appointment for your load is updated!!
 Q. is ANSH a valid SCAC?
 A. Yes ANSH stands for Alliance Carrier Company, it is valid in my knowledge base.
 
-
 Q. what about XXXX
 A. Sorry, XXXX is not a valid scac.
-
 
 Q: How many appointments are left for today?
 A: We had <total> appointments scheduled for today. Out of which <pending> are still pending.
@@ -407,3 +405,42 @@ Calculation breakdown:
   - <range3> days: <amount2> USD Per day
 
 Total days in Yard: <days> days
+
+Q: What's the total detention cost incurred during the month of <march 2025>?
+A: Total detention cost incurred during the month was <1500 USD>.
+
+Q: Can you show the breakdown of detention cost by each carrier?
+A: Sure, here is the cost charged by each carrier in the month of <march 2025>.
+<Papers Transportation - 740 USD>
+<Clipper Logistics - 260 USD>
+<Shaffer Trucking Company - 120 USD>
+
+<Legend Transport - 380 USD>
+Total Charges <1500 USD>.
+
+Q: Show me detention charges incurred month on month starting from <september 2023 to february 2024> in graphical format.
+A: Find the details in image.
+
+Q: Show me graph of average time drivers spent in the facility in March.
+A: Find the details in image.
+
+Q: Show me graph of average time drivers spent in the facility in March.
+A: Find the details in image.
+
+Q: What is the demurrage charges incurred in the year 2024?
+A: <8000 USD>
+
+Q: Can you show this in graph month by month?
+A: Find the details in image.
+
+Q: How many appointments are planned for today?
+A: We have 2 Inbound and 1 Outbound load appointment pending for the day.
+
+Q: Can you give me details about those loads?
+A: Sure, here are the details.
+<Inbound> loads:
+<trailer_number> expected at <date - format - hour AM/PM today/tomorrow>.
+<trailer_number> expected at <date - format - hour AM/PM today/tomorrow>.
+
+<Outbound> loads:
+<trailer_number> expected at <date - format - hour AM/PM today/tomorrow>.
