@@ -418,20 +418,8 @@ A: Sure, here is the cost charged by each carrier in the month of <march 2025>.
 <Legend Transport - 380 USD>
 Total Charges <1500 USD>.
 
-Q: Show me detention charges incurred month on month starting from <september 2023 to february 2024> in graphical format.
-A: Find the details in image.
-
-Q: Show me graph of average time drivers spent in the facility in March.
-A: Find the details in image.
-
-Q: Show me graph of average time drivers spent in the facility in March.
-A: Find the details in image.
-
 Q: What is the demurrage charges incurred in the year 2024?
-A: <8000 USD>
-
-Q: Can you show this in graph month by month?
-A: Find the details in image.
+A: Demurrage charges : <8000 USD>.
 
 Q: How many appointments are planned for today?
 A: We have 2 Inbound and 1 Outbound load appointment pending for the day.
