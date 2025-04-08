@@ -1,53 +1,57 @@
-name: Build and deploy Node.js app to Azure Web App - intelligatdemo
+name: Main branch to azure WebApp Deploy
 
 on:
   push:
     branches:
-      - main
-  workflow_dispatch:
+        - main
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: Set up Node.js and cache
+      - name: Git Checkout
+        uses: actions/checkout@v4
+        
+      - name: Steup Node
         uses: actions/setup-node@v3
-        with:
-          node-version: '20.x'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build --if-present
-
-      - name: Optimize for production
+        with: 
+          node-version: "20.x"
+          
+      - name: Install and Build
         run: |
-          npm prune --production
-          find . -type d \( -name ".git" -o -name ".github" -o -name "tests" -o -name "docs" \) -exec rm -rf {} + 2>/dev/null || true
-
-      - name: Stop existing deployment (if any)
-        uses: azure/CLI@v1
+          npm install
+          npm run build
+      
+      - name: Zip build
+        run: |
+          zip release.zip ./* -r
+      
+      - name: Uploading the zipped Artifact
+        uses: actions/upload-artifact@v4
+        with: 
+          name: node-app
+          path: release.zip
+    
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment: 
+      name: 'Production'
+      url: 'intelligatdemo-gufhhdefauc2ccac.centralindia-01.azurewebsites.net'
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
         with:
-          inlineScript: |
-            az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }} || true
-            az webapp deployment source disconnect --name intelligatdemo --resource-group intelligatdemo-rg || true
-        continue-on-error: true
+          name: node-app
+
+      - name: Unzip artifact for deployment
+        run: unzip release.zip
 
       - name: 'Deploy to Azure Web App'
-        uses: azure/webapps-deploy@v3
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v2
         with:
-          app-name: 'intelligatdemo'
+          app-name: intelligatdemo
           slot-name: 'Production'
-          package: .
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_75920E9CA45544EFA050A41226019426 }}
-          clean: true
-          restart: true
+          package: .
