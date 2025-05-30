@@ -14,8 +14,10 @@ class GraphService {
             height: 600,
             backgroundColour: 'white',
             chartCallback: (ChartJS) => {
-                ChartJS.defaults.font.family = 'Arial, sans-serif';
+                // Register better fonts and fallbacks
+                ChartJS.defaults.font.family = 'Arial, Helvetica, sans-serif';
                 ChartJS.defaults.font.size = 12;
+                ChartJS.defaults.color = '#333333';
             }
         });
     }
@@ -105,16 +107,16 @@ class GraphService {
                 layout = {
                     title: {
                         text: title,
-                        font: { size: 24, family: 'Arial, sans-serif', color: '#2c3e50' },
+                        font: { size: 24, family: 'Arial, Helvetica, sans-serif', color: '#2c3e50' },
                         x: 0.5
                     },
-                    font: { size: 14, family: 'Arial, sans-serif' },
+                    font: { size: 14, family: 'Arial, Helvetica, sans-serif' },
                     showlegend: true,
                     legend: {
                         orientation: 'v',
                         x: 1.02,
                         y: 0.5,
-                        font: { size: 12 }
+                        font: { size: 12, family: 'Arial, Helvetica, sans-serif' }
                     },
                     margin: { l: 50, r: 150, t: 80, b: 50 },
                     paper_bgcolor: 'white',
@@ -146,7 +148,7 @@ class GraphService {
                 layout = {
                     title: {
                         text: title,
-                        font: { size: 24, family: 'Arial, sans-serif', color: '#2c3e50' },
+                        font: { size: 24, family: 'Arial, Helvetica, sans-serif', color: '#2c3e50' },
                         x: 0.5
                     },
                     xaxis: {
@@ -160,7 +162,7 @@ class GraphService {
                         tickfont: { size: 12 },
                         gridcolor: '#ecf0f1'
                     },
-                    font: { size: 14, family: 'Arial, sans-serif' },
+                    font: { size: 14, family: 'Arial, Helvetica, sans-serif' },
                     margin: { l: 80, r: 50, t: 80, b: 120 },
                     paper_bgcolor: 'white',
                     plot_bgcolor: 'white'
@@ -189,11 +191,16 @@ class GraphService {
                 layout = {
                     title: {
                         text: title,
-                        font: { size: 24, family: 'Arial, sans-serif', color: '#2c3e50' },
+                        font: { size: 24, family: 'Arial, Helvetica, sans-serif', color: '#2c3e50' },
                         x: 0.5
                     },
                     xaxis: {
-                        title: { text: 'Categories', font: { size: 16 } },
+                        title: {
+                            display: true,
+                            text: 'Categories',
+                            font: { size: 14, family: 'Arial, Helvetica, sans-serif' },
+                            color: '#333333'
+                        },
                         tickangle: -45,
                         tickfont: { size: 12 },
                         gridcolor: '#ecf0f1'
@@ -203,7 +210,7 @@ class GraphService {
                         tickfont: { size: 12 },
                         gridcolor: '#ecf0f1'
                     },
-                    font: { size: 14, family: 'Arial, sans-serif' },
+                    font: { size: 14, family: 'Arial, Helvetica, sans-serif' },
                     margin: { l: 80, r: 50, t: 80, b: 120 },
                     paper_bgcolor: 'white',
                     plot_bgcolor: 'white',
@@ -216,17 +223,28 @@ class GraphService {
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+        
         body { 
             margin: 0; 
             padding: 20px; 
-            font-family: Arial, sans-serif; 
+            font-family: 'Inter', Arial, Helvetica, sans-serif; 
             background: white;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
         #chart { 
             width: 1200px; 
             height: 700px; 
+            font-family: 'Inter', Arial, Helvetica, sans-serif;
+        }
+        
+        /* Ensure text renders properly */
+        * {
+            font-family: 'Inter', Arial, Helvetica, sans-serif !important;
         }
     </style>
 </head>
@@ -235,6 +253,21 @@ class GraphService {
     <script>
         const data = ${JSON.stringify(plotlyData)};
         const layout = ${JSON.stringify(layout)};
+        
+        // Override font family in layout to ensure proper rendering
+        if (layout.font) {
+            layout.font.family = 'Inter, Arial, Helvetica, sans-serif';
+        }
+        if (layout.title && layout.title.font) {
+            layout.title.font.family = 'Inter, Arial, Helvetica, sans-serif';
+        }
+        if (layout.xaxis && layout.xaxis.title && layout.xaxis.title.font) {
+            layout.xaxis.title.font.family = 'Inter, Arial, Helvetica, sans-serif';
+        }
+        if (layout.yaxis && layout.yaxis.title && layout.yaxis.title.font) {
+            layout.yaxis.title.font.family = 'Inter, Arial, Helvetica, sans-serif';
+        }
+        
         const config = {
             responsive: true,
             displayModeBar: false,
@@ -331,8 +364,9 @@ class GraphService {
                             title: {
                                 display: true,
                                 text: title,
-                                font: { size: 20, weight: 'bold' },
-                                padding: 20
+                                font: { size: 20, weight: 'bold', family: 'Arial, Helvetica, sans-serif' },
+                                padding: 20,
+                                color: '#333333'
                             },
                             legend: {
                                 position: 'right',
@@ -388,8 +422,9 @@ class GraphService {
                             title: {
                                 display: true,
                                 text: title,
-                                font: { size: 20, weight: 'bold' },
-                                padding: 20
+                                font: { size: 20, weight: 'bold', family: 'Arial, Helvetica, sans-serif' },
+                                padding: 20,
+                                color: '#333333'
                             },
                             legend: { display: false }
                         },
@@ -399,14 +434,16 @@ class GraphService {
                                 title: {
                                     display: true,
                                     text: units && units[0] ? `Value (${units[0]})` : 'Value',
-                                    font: { size: 14 }
+                                    font: { size: 14, family: 'Arial, Helvetica, sans-serif' },
+                                    color: '#333333'
                                 }
                             },
                             x: {
                                 title: {
                                     display: true,
                                     text: 'Categories',
-                                    font: { size: 14 }
+                                    font: { size: 14, family: 'Arial, Helvetica, sans-serif' },
+                                    color: '#333333'
                                 },
                                 ticks: { maxRotation: 45 }
                             }
@@ -437,8 +474,9 @@ class GraphService {
                             title: {
                                 display: true,
                                 text: title,
-                                font: { size: 20, weight: 'bold' },
-                                padding: 20
+                                font: { size: 20, weight: 'bold', family: 'Arial, Helvetica, sans-serif' },
+                                padding: 20,
+                                color: '#333333'
                             },
                             legend: { display: false },
                             tooltip: {
@@ -456,14 +494,16 @@ class GraphService {
                                 title: {
                                     display: true,
                                     text: units && units[0] ? `Value (${units[0]})` : 'Value',
-                                    font: { size: 14 }
+                                    font: { size: 14, family: 'Arial, Helvetica, sans-serif' },
+                                    color: '#333333'
                                 }
                             },
                             x: {
                                 title: {
                                     display: true,
                                     text: 'Categories',
-                                    font: { size: 14 }
+                                    font: { size: 14, family: 'Arial, Helvetica, sans-serif' },
+                                    color: '#333333'
                                 },
                                 ticks: { maxRotation: 45 }
                             }
