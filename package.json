@@ -6,7 +6,8 @@
   "scripts": {
     "dev:teamsfx": "npm run dev",
     "dev": "nodemon --inspect=9239 --signal SIGINT ./server/index.js",
-    "start": "node server/index.js",
+    "start": "npx puppeteer browsers install chrome && node server/index.js",
+    "prestart": "npm run install-chrome || echo 'Chrome installation failed, will use fallback'",
     "watch": "nodemon server/index.js",
     "build": "node build.js",
     "lint": "eslint .",
