@@ -21,8 +21,29 @@ class GraphService {
     }
 
     ensureOutputDir() {
-        if (!fs.existsSync(this.outputDir)) {
-            fs.mkdirSync(this.outputDir, { recursive: true });
+        try {
+            if (!fs.existsSync(this.outputDir)) {
+                fs.mkdirSync(this.outputDir, { recursive: true });
+                console.log('Created graph output directory:', this.outputDir);
+            }
+        } catch (error) {
+            console.error('Error creating graph output directory:', error);
+            // Fallback to a temporary directory in the current working directory
+            this.outputDir = path.join(process.cwd(), 'temp', 'graphs');
+            try {
+                if (!fs.existsSync(this.outputDir)) {
+                    fs.mkdirSync(this.outputDir, { recursive: true });
+                    console.log('Created fallback graph directory:', this.outputDir);
+                }
+            } catch (fallbackError) {
+                console.error('Error creating fallback directory:', fallbackError);
+                // Last resort: use system temp directory
+                this.outputDir = path.join(require('os').tmpdir(), 'bot-graphs');
+                if (!fs.existsSync(this.outputDir)) {
+                    fs.mkdirSync(this.outputDir, { recursive: true });
+                    console.log('Created system temp graph directory:', this.outputDir);
+                }
+            }
         }
     }
 
@@ -470,7 +491,7 @@ class GraphService {
                 console.log('Cleaned up graph file:', filePath);
             }
         } catch (error) {
-            console.error('Error cleaning up graph file:', error);
+            console.error('Error cleaning up graph file:', filePath, error.message);
         }
     }
 
@@ -478,23 +499,34 @@ class GraphService {
     cleanupOldGraphs() {
         try {
             if (!fs.existsSync(this.outputDir)) {
+                console.log('Graph output directory does not exist, skipping cleanup');
                 return;
             }
 
             const files = fs.readdirSync(this.outputDir);
             const oneHourAgo = Date.now() - (60 * 60 * 1000); // 1 hour in milliseconds
+            let cleanedCount = 0;
 
             files.forEach(file => {
-                const filePath = path.join(this.outputDir, file);
-                const stats = fs.statSync(filePath);
+                try {
+                    const filePath = path.join(this.outputDir, file);
+                    const stats = fs.statSync(filePath);
 
-                if (stats.mtime.getTime() < oneHourAgo) {
-                    fs.unlinkSync(filePath);
-                    console.log('Cleaned up old graph file:', file);
+                    if (stats.mtime.getTime() < oneHourAgo) {
+                        fs.unlinkSync(filePath);
+                        console.log('Cleaned up old graph file:', file);
+                        cleanedCount++;
+                    }
+                } catch (fileError) {
+                    console.error('Error processing file during cleanup:', file, fileError.message);
                 }
             });
+
+            if (cleanedCount > 0) {
+                console.log(`Cleaned up ${cleanedCount} old graph files`);
+            }
         } catch (error) {
-            console.error('Error cleaning up old graphs:', error);
+            console.error('Error during graph cleanup:', error.message);
         }
     }
 }
