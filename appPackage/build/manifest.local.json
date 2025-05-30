@@ -2,7 +2,7 @@
     "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.19/MicrosoftTeams.schema.json",
     "manifestVersion": "1.19",
     "version": "1.0.0",
-    "id": "0282f442-b836-424d-b317-84e11efa1ea2",
+    "id": "ba5a7783-9445-489a-bb22-7973cf00b9d2",
     "developer": {
         "name": "IntelliGate Support",
         "websiteUrl": "https://sdcprod.unilever.com/",
@@ -10,8 +10,8 @@
         "termsOfUseUrl": "https://www.microsoft.com/termsofuse"
     },
     "name": {
-        "short": "IntelliGate AI Agent",
-        "full": "IntelliGate Support AI Assistant"
+        "short": "Vira",
+        "full": "Vira - Virtual Assistant"
     },
     "description": {
         "short": "AI-powered assistant for IntelliGate support and troubleshooting.",
@@ -23,7 +23,7 @@
     },
     "bots": [
         {
-            "botId": "0d09dbc8-87aa-4532-aa4f-58c6dcedbe07",
+            "botId": "8fbcc816-58ca-4ded-8aa7-8f546119c0eb",
             "scopes": [
                 "team",
                 "personal",
@@ -38,11 +38,11 @@
         "messageTeamMembers"
     ],
     "validDomains": [
-        "rvc7rjgv-3978.inc1.devtunnels.ms",
+        "22nwk7z4-3978.inc1.devtunnels.ms",
         "token.botframework.com"
     ],
     "webApplicationInfo": {
-        "id": "0d09dbc8-87aa-4532-aa4f-58c6dcedbe07",
+        "id": "8fbcc816-58ca-4ded-8aa7-8f546119c0eb",
         "resource": "https://AnyString"
     },
     "authorization": {
