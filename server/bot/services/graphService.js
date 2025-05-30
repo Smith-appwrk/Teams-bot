@@ -1,11 +1,23 @@
 const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer');
+const { ChartJSNodeCanvas } = require('chartjs-node-canvas');
 
 class GraphService {
     constructor() {
         this.outputDir = path.join(__dirname, '../../temp/graphs');
         this.ensureOutputDir();
+
+        // Initialize Chart.js canvas as fallback
+        this.chartJSNodeCanvas = new ChartJSNodeCanvas({
+            width: 1000,
+            height: 600,
+            backgroundColour: 'white',
+            chartCallback: (ChartJS) => {
+                ChartJS.defaults.font.family = 'Arial, sans-serif';
+                ChartJS.defaults.font.size = 12;
+            }
+        });
     }
 
     ensureOutputDir() {
@@ -20,14 +32,26 @@ class GraphService {
             console.log('Graph type:', type);
             console.log('Title:', title);
 
-            // Create HTML with Plotly chart
-            const html = this.createPlotlyHTML(data, type, title);
+            // Try Puppeteer first (for better quality)
+            try {
+                const html = this.createPlotlyHTML(data, type, title);
+                const imagePath = await this.renderChartToImage(html);
+                console.log('High-quality graph saved to:', imagePath);
+                return imagePath;
+            } catch (puppeteerError) {
+                console.log('Puppeteer failed, falling back to Chart.js:', puppeteerError.message);
 
-            // Generate image using Puppeteer
-            const imagePath = await this.renderChartToImage(html);
+                // Fallback to Chart.js
+                const chartConfig = this.createChartJSConfig(data, type, title);
+                const imageBuffer = await this.chartJSNodeCanvas.renderToBuffer(chartConfig);
 
-            console.log('High-quality graph saved to:', imagePath);
-            return imagePath;
+                const filename = `graph_${Date.now()}.png`;
+                const filepath = path.join(this.outputDir, filename);
+
+                fs.writeFileSync(filepath, imageBuffer);
+                console.log('Fallback graph saved to:', filepath);
+                return filepath;
+            }
         } catch (error) {
             console.error('Error generating graph:', error);
             return null;
@@ -205,9 +229,20 @@ class GraphService {
     async renderChartToImage(html) {
         let browser;
         try {
+            // Try to launch Puppeteer with more robust configuration for server environments
             browser = await puppeteer.launch({
                 headless: true,
-                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-accelerated-2d-canvas',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--single-process',
+                    '--disable-gpu'
+                ],
+                executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
             });
 
             const page = await browser.newPage();
@@ -250,6 +285,180 @@ class GraphService {
             '#95a5a6', '#f1c40f', '#8e44ad', '#16a085'
         ];
 
+        return Array.from({ length: count }, (_, i) => colors[i % colors.length]);
+    }
+
+    createChartJSConfig(data, type, title) {
+        const { labels, data: values, units } = data;
+
+        switch (type.toLowerCase()) {
+            case 'pie':
+                return {
+                    type: 'pie',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: values,
+                            backgroundColor: this.getChartJSColors(labels.length),
+                            borderColor: '#ffffff',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: title,
+                                font: { size: 20, weight: 'bold' },
+                                padding: 20
+                            },
+                            legend: {
+                                position: 'right',
+                                labels: {
+                                    font: { size: 12 },
+                                    padding: 15,
+                                    generateLabels: function (chart) {
+                                        const data = chart.data;
+                                        if (data.labels.length && data.datasets.length) {
+                                            return data.labels.map((label, i) => {
+                                                const value = data.datasets[0].data[i];
+                                                const unit = units && units[i] ? ` ${units[i]}` : '';
+                                                return {
+                                                    text: `${label}: ${value}${unit}`,
+                                                    fillStyle: data.datasets[0].backgroundColor[i],
+                                                    strokeStyle: '#ffffff',
+                                                    lineWidth: 2,
+                                                    index: i
+                                                };
+                                            });
+                                        }
+                                        return [];
+                                    }
+                                }
+                            }
+                        },
+                        layout: { padding: 20 }
+                    }
+                };
+
+            case 'line':
+                return {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Values',
+                            data: values,
+                            borderColor: '#3498db',
+                            backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                            borderWidth: 3,
+                            fill: false,
+                            tension: 0.4,
+                            pointBackgroundColor: '#3498db',
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 2,
+                            pointRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: title,
+                                font: { size: 20, weight: 'bold' },
+                                padding: 20
+                            },
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: units && units[0] ? `Value (${units[0]})` : 'Value',
+                                    font: { size: 14 }
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Categories',
+                                    font: { size: 14 }
+                                },
+                                ticks: { maxRotation: 45 }
+                            }
+                        },
+                        layout: { padding: 20 }
+                    }
+                };
+
+            case 'bar':
+            default:
+                return {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Values',
+                            data: values,
+                            backgroundColor: this.getChartJSColors(labels.length),
+                            borderColor: '#ffffff',
+                            borderWidth: 2,
+                            borderRadius: 8,
+                            borderSkipped: false,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: title,
+                                font: { size: 20, weight: 'bold' },
+                                padding: 20
+                            },
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (context) {
+                                        const unit = units && units[context.dataIndex] ? ` ${units[context.dataIndex]}` : '';
+                                        return `${context.parsed.y}${unit}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: units && units[0] ? `Value (${units[0]})` : 'Value',
+                                    font: { size: 14 }
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Categories',
+                                    font: { size: 14 }
+                                },
+                                ticks: { maxRotation: 45 }
+                            }
+                        },
+                        layout: { padding: 20 }
+                    }
+                };
+        }
+    }
+
+    getChartJSColors(count) {
+        const colors = [
+            'rgba(54, 162, 235, 0.8)', 'rgba(255, 99, 132, 0.8)', 'rgba(255, 206, 86, 0.8)',
+            'rgba(75, 192, 192, 0.8)', 'rgba(153, 102, 255, 0.8)', 'rgba(255, 159, 64, 0.8)',
+            'rgba(199, 199, 199, 0.8)', 'rgba(83, 102, 255, 0.8)'
+        ];
         return Array.from({ length: count }, (_, i) => colors[i % colors.length]);
     }
 

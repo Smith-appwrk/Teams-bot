@@ -11,7 +11,9 @@
     "build": "node build.js",
     "lint": "eslint .",
     "server": "npm install && node server/index.js",
-    "manifest": "del \"appManifest\\appManifest.zip\" 2> nul && powershell Compress-Archive appManifest/* appManifest/appManifest.zip"
+    "manifest": "del \"appManifest\\appManifest.zip\" 2> nul && powershell Compress-Archive appManifest/* appManifest/appManifest.zip",
+    "install-chrome": "npx puppeteer browsers install chrome",
+    "postinstall": "npm run install-chrome || echo 'Chrome installation failed, will use fallback'"
   },
   "keywords": [],
   "author": "Microsoft",
