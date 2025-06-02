@@ -44,27 +44,60 @@ class GraphService {
 
     ensureOutputDir() {
         try {
+            // For Azure App Service, use the writable temp directory
+            const isAzure = process.env.WEBSITE_SITE_NAME || process.env.APPSETTING_WEBSITE_SITE_NAME;
+
+            if (isAzure) {
+                // Azure App Service writable directories
+                const azureTempPaths = [
+                    '/tmp/graphs',
+                    '/home/LogFiles/graphs',
+                    '/home/site/deployments/tools/graphs',
+                    '/home/data/graphs',
+                    process.env.TEMP ? path.join(process.env.TEMP, 'graphs') : null,
+                    process.env.TMP ? path.join(process.env.TMP, 'graphs') : null,
+                    '/home/site/wwwroot/App_Data/graphs',
+                    path.join(require('os').tmpdir(), 'graphs')
+                ].filter(Boolean);
+
+                for (const tempPath of azureTempPaths) {
+                    try {
+                        this.outputDir = tempPath;
+                        if (!fs.existsSync(this.outputDir)) {
+                            fs.mkdirSync(this.outputDir, { recursive: true });
+                        }
+                        // Test write access
+                        const testFile = path.join(this.outputDir, 'test_write.tmp');
+                        fs.writeFileSync(testFile, 'test');
+                        fs.unlinkSync(testFile);
+                        console.log('Using Azure writable directory:', this.outputDir);
+                        return;
+                    } catch (error) {
+                        console.log(`Failed to use ${tempPath}:`, error.message);
+                        continue;
+                    }
+                }
+            }
+
+            // Fallback for local development
+            this.outputDir = path.join(__dirname, '../../temp/graphs');
             if (!fs.existsSync(this.outputDir)) {
                 fs.mkdirSync(this.outputDir, { recursive: true });
-                console.log('Created graph output directory:', this.outputDir);
+                console.log('Created local graph output directory:', this.outputDir);
             }
         } catch (error) {
             console.error('Error creating graph output directory:', error);
-            // Fallback to a temporary directory in the current working directory
-            this.outputDir = path.join(process.cwd(), 'temp', 'graphs');
+            // Last resort: use system temp directory
+            this.outputDir = path.join(require('os').tmpdir(), 'bot-graphs');
             try {
-                if (!fs.existsSync(this.outputDir)) {
-                    fs.mkdirSync(this.outputDir, { recursive: true });
-                    console.log('Created fallback graph directory:', this.outputDir);
-                }
-            } catch (fallbackError) {
-                console.error('Error creating fallback directory:', fallbackError);
-                // Last resort: use system temp directory
-                this.outputDir = path.join(require('os').tmpdir(), 'bot-graphs');
                 if (!fs.existsSync(this.outputDir)) {
                     fs.mkdirSync(this.outputDir, { recursive: true });
                     console.log('Created system temp graph directory:', this.outputDir);
                 }
+            } catch (finalError) {
+                console.error('Failed to create any writable directory:', finalError);
+                // Use in-memory approach as absolute fallback
+                this.outputDir = null;
             }
         }
     }
@@ -76,12 +109,24 @@ class GraphService {
             const chartConfig = this.createChartJSConfig(data, type, title);
             const imageBuffer = await this.chartJSNodeCanvas.renderToBuffer(chartConfig);
 
+            // If no writable directory is available, return buffer directly
+            if (!this.outputDir) {
+                console.log('No writable directory available, returning image buffer directly');
+                return { buffer: imageBuffer, isBuffer: true };
+            }
+
             const filename = `graph_${Date.now()}.png`;
             const filepath = path.join(this.outputDir, filename);
 
-            fs.writeFileSync(filepath, imageBuffer);
-            console.log('Chart saved to:', filepath);
-            return filepath;
+            try {
+                fs.writeFileSync(filepath, imageBuffer);
+                console.log('Chart saved to:', filepath);
+                return filepath;
+            } catch (writeError) {
+                console.error('Failed to write chart to disk:', writeError);
+                console.log('Falling back to in-memory buffer');
+                return { buffer: imageBuffer, isBuffer: true };
+            }
         } catch (error) {
             console.error('Error generating chart:', error);
             return null;
@@ -391,9 +436,12 @@ class GraphService {
     // Clean up a specific graph file after it's been sent
     async cleanupGraphFile(filePath) {
         try {
-            if (filePath && fs.existsSync(filePath)) {
+            // Only attempt cleanup for actual file paths, not buffer objects
+            if (typeof filePath === 'string' && filePath && fs.existsSync(filePath)) {
                 fs.unlinkSync(filePath);
                 console.log('Cleaned up graph file:', filePath);
+            } else if (typeof filePath === 'object' && filePath.isBuffer) {
+                console.log('Buffer object cleanup not needed');
             }
         } catch (error) {
             console.error('Error cleaning up graph file:', filePath, error.message);
