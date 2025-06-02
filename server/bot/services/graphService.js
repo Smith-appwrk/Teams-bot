@@ -1,6 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const puppeteer = require('puppeteer');
 const { ChartJSNodeCanvas } = require('chartjs-node-canvas');
 
 class GraphService {
@@ -8,16 +7,37 @@ class GraphService {
         this.outputDir = path.join(__dirname, '../../temp/graphs');
         this.ensureOutputDir();
 
-        // Initialize Chart.js canvas as fallback
+        // Initialize Chart.js canvas with enhanced configuration
         this.chartJSNodeCanvas = new ChartJSNodeCanvas({
-            width: 1000,
-            height: 600,
+            width: 1200,
+            height: 700,
             backgroundColour: 'white',
             chartCallback: (ChartJS) => {
-                // Register better fonts and fallbacks
+                // Register Chart.js plugins and components
+                ChartJS.register(
+                    ChartJS.CategoryScale,
+                    ChartJS.LinearScale,
+                    ChartJS.BarElement,
+                    ChartJS.LineElement,
+                    ChartJS.PointElement,
+                    ChartJS.ArcElement,
+                    ChartJS.Title,
+                    ChartJS.Tooltip,
+                    ChartJS.Legend
+                );
+
+                // Enhanced default styling
                 ChartJS.defaults.font.family = 'Arial, Helvetica, sans-serif';
-                ChartJS.defaults.font.size = 12;
+                ChartJS.defaults.font.size = 14;
                 ChartJS.defaults.color = '#333333';
+                ChartJS.defaults.plugins.legend.labels.usePointStyle = true;
+                ChartJS.defaults.plugins.legend.labels.padding = 20;
+
+                // Set default border radius for bars
+                if (ChartJS.defaults.elements && ChartJS.defaults.elements.bar) {
+                    ChartJS.defaults.elements.bar.borderRadius = 8;
+                    ChartJS.defaults.elements.bar.borderSkipped = false;
+                }
             }
         });
     }
@@ -51,338 +71,102 @@ class GraphService {
 
     async generateGraph(data, type = 'bar', title = 'Data Visualization') {
         try {
-            console.log('Generating high-quality graph with data:', data);
-            console.log('Graph type:', type);
-            console.log('Title:', title);
+            console.log('Generating chart with Chart.js:', { data, type, title });
 
-            // Try Puppeteer first (for better quality)
-            try {
-                const html = this.createPlotlyHTML(data, type, title);
-                const imagePath = await this.renderChartToImage(html);
-                console.log('High-quality graph saved to:', imagePath);
-                return imagePath;
-            } catch (puppeteerError) {
-                console.log('Puppeteer failed, falling back to Chart.js:', puppeteerError.message);
-
-                // Fallback to Chart.js
-                const chartConfig = this.createChartJSConfig(data, type, title);
-                const imageBuffer = await this.chartJSNodeCanvas.renderToBuffer(chartConfig);
-
-                const filename = `graph_${Date.now()}.png`;
-                const filepath = path.join(this.outputDir, filename);
-
-                fs.writeFileSync(filepath, imageBuffer);
-                console.log('Fallback graph saved to:', filepath);
-                return filepath;
-            }
-        } catch (error) {
-            console.error('Error generating graph:', error);
-            return null;
-        }
-    }
-
-    createPlotlyHTML(data, type, title) {
-        const { labels, data: values, units } = data;
-
-        let plotlyData, layout;
-
-        switch (type.toLowerCase()) {
-            case 'pie':
-                plotlyData = [{
-                    type: 'pie',
-                    labels: labels,
-                    values: values,
-                    textinfo: 'label+percent+value',
-                    textposition: 'auto',
-                    hovertemplate: '<b>%{label}</b><br>Value: %{value}<br>Percentage: %{percent}<extra></extra>',
-                    marker: {
-                        colors: this.getPlotlyColors(labels.length),
-                        line: {
-                            color: '#FFFFFF',
-                            width: 2
-                        }
-                    }
-                }];
-
-                layout = {
-                    title: {
-                        text: title,
-                        font: { size: 24, family: 'Arial, Helvetica, sans-serif', color: '#2c3e50' },
-                        x: 0.5
-                    },
-                    font: { size: 14, family: 'Arial, Helvetica, sans-serif' },
-                    showlegend: true,
-                    legend: {
-                        orientation: 'v',
-                        x: 1.02,
-                        y: 0.5,
-                        font: { size: 12, family: 'Arial, Helvetica, sans-serif' }
-                    },
-                    margin: { l: 50, r: 150, t: 80, b: 50 },
-                    paper_bgcolor: 'white',
-                    plot_bgcolor: 'white'
-                };
-                break;
-
-            case 'line':
-                plotlyData = [{
-                    type: 'scatter',
-                    mode: 'lines+markers',
-                    x: labels,
-                    y: values,
-                    line: {
-                        color: '#3498db',
-                        width: 4
-                    },
-                    marker: {
-                        color: '#2980b9',
-                        size: 8,
-                        line: {
-                            color: '#ffffff',
-                            width: 2
-                        }
-                    },
-                    hovertemplate: '<b>%{x}</b><br>Value: %{y}<extra></extra>'
-                }];
-
-                layout = {
-                    title: {
-                        text: title,
-                        font: { size: 24, family: 'Arial, Helvetica, sans-serif', color: '#2c3e50' },
-                        x: 0.5
-                    },
-                    xaxis: {
-                        title: { text: 'Categories', font: { size: 16 } },
-                        tickangle: -45,
-                        tickfont: { size: 12 },
-                        gridcolor: '#ecf0f1'
-                    },
-                    yaxis: {
-                        title: { text: units && units[0] ? `Value (${units[0]})` : 'Value', font: { size: 16 } },
-                        tickfont: { size: 12 },
-                        gridcolor: '#ecf0f1'
-                    },
-                    font: { size: 14, family: 'Arial, Helvetica, sans-serif' },
-                    margin: { l: 80, r: 50, t: 80, b: 120 },
-                    paper_bgcolor: 'white',
-                    plot_bgcolor: 'white'
-                };
-                break;
-
-            case 'bar':
-            default:
-                plotlyData = [{
-                    type: 'bar',
-                    x: labels,
-                    y: values,
-                    marker: {
-                        color: this.getPlotlyColors(labels.length),
-                        line: {
-                            color: '#ffffff',
-                            width: 2
-                        }
-                    },
-                    text: values.map(v => units && units[0] ? `${v} ${units[0]}` : v.toString()),
-                    textposition: 'outside',
-                    textfont: { size: 12, color: '#2c3e50' },
-                    hovertemplate: '<b>%{x}</b><br>Value: %{y}<extra></extra>'
-                }];
-
-                layout = {
-                    title: {
-                        text: title,
-                        font: { size: 24, family: 'Arial, Helvetica, sans-serif', color: '#2c3e50' },
-                        x: 0.5
-                    },
-                    xaxis: {
-                        title: {
-                            display: true,
-                            text: 'Categories',
-                            font: { size: 14, family: 'Arial, Helvetica, sans-serif' },
-                            color: '#333333'
-                        },
-                        tickangle: -45,
-                        tickfont: { size: 12 },
-                        gridcolor: '#ecf0f1'
-                    },
-                    yaxis: {
-                        title: { text: units && units[0] ? `Value (${units[0]})` : 'Value', font: { size: 16 } },
-                        tickfont: { size: 12 },
-                        gridcolor: '#ecf0f1'
-                    },
-                    font: { size: 14, family: 'Arial, Helvetica, sans-serif' },
-                    margin: { l: 80, r: 50, t: 80, b: 120 },
-                    paper_bgcolor: 'white',
-                    plot_bgcolor: 'white',
-                    showlegend: false
-                };
-                break;
-        }
-
-        return `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
-        
-        body { 
-            margin: 0; 
-            padding: 20px; 
-            font-family: 'Inter', Arial, Helvetica, sans-serif; 
-            background: white;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-        #chart { 
-            width: 1200px; 
-            height: 700px; 
-            font-family: 'Inter', Arial, Helvetica, sans-serif;
-        }
-        
-        /* Ensure text renders properly */
-        * {
-            font-family: 'Inter', Arial, Helvetica, sans-serif !important;
-        }
-    </style>
-</head>
-<body>
-    <div id="chart"></div>
-    <script>
-        const data = ${JSON.stringify(plotlyData)};
-        const layout = ${JSON.stringify(layout)};
-        
-        // Override font family in layout to ensure proper rendering
-        if (layout.font) {
-            layout.font.family = 'Inter, Arial, Helvetica, sans-serif';
-        }
-        if (layout.title && layout.title.font) {
-            layout.title.font.family = 'Inter, Arial, Helvetica, sans-serif';
-        }
-        if (layout.xaxis && layout.xaxis.title && layout.xaxis.title.font) {
-            layout.xaxis.title.font.family = 'Inter, Arial, Helvetica, sans-serif';
-        }
-        if (layout.yaxis && layout.yaxis.title && layout.yaxis.title.font) {
-            layout.yaxis.title.font.family = 'Inter, Arial, Helvetica, sans-serif';
-        }
-        
-        const config = {
-            responsive: true,
-            displayModeBar: false,
-            staticPlot: true
-        };
-        
-        Plotly.newPlot('chart', data, layout, config);
-    </script>
-</body>
-</html>`;
-    }
-
-    async renderChartToImage(html) {
-        let browser;
-        try {
-            // Try to launch Puppeteer with more robust configuration for server environments
-            browser = await puppeteer.launch({
-                headless: true,
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-accelerated-2d-canvas',
-                    '--no-first-run',
-                    '--no-zygote',
-                    '--single-process',
-                    '--disable-gpu'
-                ],
-                executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
-            });
-
-            const page = await browser.newPage();
-            await page.setViewport({ width: 1200, height: 700 });
-            await page.setContent(html, { waitUntil: 'networkidle0' });
-
-            // Wait for Plotly to render - use the correct method
-            await page.waitForSelector('#chart', { timeout: 10000 });
-            await page.evaluate(() => {
-                return new Promise((resolve) => {
-                    setTimeout(resolve, 2000); // Wait 2 seconds for chart to fully render
-                });
-            });
+            const chartConfig = this.createChartJSConfig(data, type, title);
+            const imageBuffer = await this.chartJSNodeCanvas.renderToBuffer(chartConfig);
 
             const filename = `graph_${Date.now()}.png`;
             const filepath = path.join(this.outputDir, filename);
 
-            await page.screenshot({
-                path: filepath,
-                type: 'png',
-                fullPage: false,
-                clip: { x: 0, y: 0, width: 1200, height: 700 }
-            });
-
+            fs.writeFileSync(filepath, imageBuffer);
+            console.log('Chart saved to:', filepath);
             return filepath;
         } catch (error) {
-            console.error('Error in renderChartToImage:', error);
-            throw error;
-        } finally {
-            if (browser) {
-                await browser.close();
-            }
+            console.error('Error generating chart:', error);
+            return null;
         }
-    }
-
-    getPlotlyColors(count) {
-        const colors = [
-            '#3498db', '#e74c3c', '#f39c12', '#2ecc71',
-            '#9b59b6', '#1abc9c', '#34495e', '#e67e22',
-            '#95a5a6', '#f1c40f', '#8e44ad', '#16a085'
-        ];
-
-        return Array.from({ length: count }, (_, i) => colors[i % colors.length]);
     }
 
     createChartJSConfig(data, type, title) {
         const { labels, data: values, units } = data;
 
+        // Enhanced color palettes
+        const colorPalettes = {
+            primary: [
+                'rgba(54, 162, 235, 0.8)',   // Blue
+                'rgba(255, 99, 132, 0.8)',   // Red
+                'rgba(75, 192, 192, 0.8)',   // Teal
+                'rgba(255, 206, 86, 0.8)',   // Yellow
+                'rgba(153, 102, 255, 0.8)',  // Purple
+                'rgba(255, 159, 64, 0.8)',   // Orange
+                'rgba(199, 199, 199, 0.8)',  // Grey
+                'rgba(83, 102, 255, 0.8)'    // Indigo
+            ],
+            borders: [
+                'rgba(54, 162, 235, 1)',
+                'rgba(255, 99, 132, 1)',
+                'rgba(75, 192, 192, 1)',
+                'rgba(255, 206, 86, 1)',
+                'rgba(153, 102, 255, 1)',
+                'rgba(255, 159, 64, 1)',
+                'rgba(199, 199, 199, 1)',
+                'rgba(83, 102, 255, 1)'
+            ]
+        };
+
+        const getColors = (count, type = 'primary') => {
+            return Array.from({ length: count }, (_, i) => colorPalettes[type][i % colorPalettes[type].length]);
+        };
+
         switch (type.toLowerCase()) {
             case 'pie':
+            case 'doughnut':
                 return {
-                    type: 'pie',
+                    type: type.toLowerCase() === 'pie' ? 'pie' : 'doughnut',
                     data: {
                         labels: labels,
                         datasets: [{
                             data: values,
-                            backgroundColor: this.getChartJSColors(labels.length),
-                            borderColor: '#ffffff',
-                            borderWidth: 2
+                            backgroundColor: getColors(labels.length),
+                            borderColor: getColors(labels.length, 'borders'),
+                            borderWidth: 3,
+                            hoverBorderWidth: 5
                         }]
                     },
                     options: {
                         responsive: true,
+                        maintainAspectRatio: false,
                         plugins: {
                             title: {
                                 display: true,
                                 text: title,
-                                font: { size: 20, weight: 'bold', family: 'Arial, Helvetica, sans-serif' },
-                                padding: 20,
-                                color: '#333333'
+                                font: {
+                                    size: 24,
+                                    weight: 'bold',
+                                    family: 'Arial, Helvetica, sans-serif'
+                                },
+                                padding: 30,
+                                color: '#2c3e50'
                             },
                             legend: {
                                 position: 'right',
                                 labels: {
-                                    font: { size: 12 },
-                                    padding: 15,
+                                    font: { size: 14 },
+                                    padding: 20,
+                                    usePointStyle: true,
                                     generateLabels: function (chart) {
                                         const data = chart.data;
                                         if (data.labels.length && data.datasets.length) {
+                                            const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
                                             return data.labels.map((label, i) => {
                                                 const value = data.datasets[0].data[i];
+                                                const percentage = ((value / total) * 100).toFixed(1);
                                                 const unit = units && units[i] ? ` ${units[i]}` : '';
                                                 return {
-                                                    text: `${label}: ${value}${unit}`,
+                                                    text: `${label}: ${value}${unit} (${percentage}%)`,
                                                     fillStyle: data.datasets[0].backgroundColor[i],
-                                                    strokeStyle: '#ffffff',
+                                                    strokeStyle: data.datasets[0].borderColor[i],
                                                     lineWidth: 2,
                                                     index: i
                                                 };
@@ -391,9 +175,28 @@ class GraphService {
                                         return [];
                                     }
                                 }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (context) {
+                                        const label = context.label || '';
+                                        const value = context.parsed;
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = ((value / total) * 100).toFixed(1);
+                                        const unit = units && units[context.dataIndex] ? ` ${units[context.dataIndex]}` : '';
+                                        return `${label}: ${value}${unit} (${percentage}%)`;
+                                    }
+                                }
                             }
                         },
-                        layout: { padding: 20 }
+                        layout: {
+                            padding: {
+                                top: 20,
+                                bottom: 20,
+                                left: 20,
+                                right: 150
+                            }
+                        }
                     }
                 };
 
@@ -405,28 +208,44 @@ class GraphService {
                         datasets: [{
                             label: 'Values',
                             data: values,
-                            borderColor: '#3498db',
-                            backgroundColor: 'rgba(52, 152, 219, 0.1)',
-                            borderWidth: 3,
-                            fill: false,
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                            borderWidth: 4,
+                            fill: true,
                             tension: 0.4,
-                            pointBackgroundColor: '#3498db',
+                            pointBackgroundColor: 'rgba(54, 162, 235, 1)',
                             pointBorderColor: '#ffffff',
-                            pointBorderWidth: 2,
-                            pointRadius: 6
+                            pointBorderWidth: 3,
+                            pointRadius: 8,
+                            pointHoverRadius: 12
                         }]
                     },
                     options: {
                         responsive: true,
+                        maintainAspectRatio: false,
                         plugins: {
                             title: {
                                 display: true,
                                 text: title,
-                                font: { size: 20, weight: 'bold', family: 'Arial, Helvetica, sans-serif' },
-                                padding: 20,
-                                color: '#333333'
+                                font: {
+                                    size: 24,
+                                    weight: 'bold',
+                                    family: 'Arial, Helvetica, sans-serif'
+                                },
+                                padding: 30,
+                                color: '#2c3e50'
                             },
-                            legend: { display: false }
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (context) {
+                                        const unit = units && units[0] ? ` ${units[0]}` : '';
+                                        return `Value: ${context.parsed.y}${unit}`;
+                                    }
+                                }
+                            }
                         },
                         scales: {
                             y: {
@@ -434,21 +253,43 @@ class GraphService {
                                 title: {
                                     display: true,
                                     text: units && units[0] ? `Value (${units[0]})` : 'Value',
-                                    font: { size: 14, family: 'Arial, Helvetica, sans-serif' },
-                                    color: '#333333'
+                                    font: {
+                                        size: 16,
+                                        family: 'Arial, Helvetica, sans-serif',
+                                        weight: 'bold'
+                                    },
+                                    color: '#2c3e50'
+                                },
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.1)'
+                                },
+                                ticks: {
+                                    font: { size: 12 }
                                 }
                             },
                             x: {
                                 title: {
                                     display: true,
                                     text: 'Categories',
-                                    font: { size: 14, family: 'Arial, Helvetica, sans-serif' },
-                                    color: '#333333'
+                                    font: {
+                                        size: 16,
+                                        family: 'Arial, Helvetica, sans-serif',
+                                        weight: 'bold'
+                                    },
+                                    color: '#2c3e50'
                                 },
-                                ticks: { maxRotation: 45 }
+                                ticks: {
+                                    maxRotation: 45,
+                                    font: { size: 12 }
+                                },
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.1)'
+                                }
                             }
                         },
-                        layout: { padding: 20 }
+                        layout: {
+                            padding: 30
+                        }
                     }
                 };
 
@@ -461,24 +302,35 @@ class GraphService {
                         datasets: [{
                             label: 'Values',
                             data: values,
-                            backgroundColor: this.getChartJSColors(labels.length),
-                            borderColor: '#ffffff',
+                            backgroundColor: getColors(labels.length),
+                            borderColor: getColors(labels.length, 'borders'),
                             borderWidth: 2,
                             borderRadius: 8,
                             borderSkipped: false,
+                            hoverBackgroundColor: getColors(labels.length).map(color =>
+                                color.replace('0.8', '1')
+                            ),
+                            hoverBorderWidth: 3
                         }]
                     },
                     options: {
                         responsive: true,
+                        maintainAspectRatio: false,
                         plugins: {
                             title: {
                                 display: true,
                                 text: title,
-                                font: { size: 20, weight: 'bold', family: 'Arial, Helvetica, sans-serif' },
-                                padding: 20,
-                                color: '#333333'
+                                font: {
+                                    size: 24,
+                                    weight: 'bold',
+                                    family: 'Arial, Helvetica, sans-serif'
+                                },
+                                padding: 30,
+                                color: '#2c3e50'
                             },
-                            legend: { display: false },
+                            legend: {
+                                display: false
+                            },
                             tooltip: {
                                 callbacks: {
                                     label: function (context) {
@@ -494,33 +346,46 @@ class GraphService {
                                 title: {
                                     display: true,
                                     text: units && units[0] ? `Value (${units[0]})` : 'Value',
-                                    font: { size: 14, family: 'Arial, Helvetica, sans-serif' },
-                                    color: '#333333'
+                                    font: {
+                                        size: 16,
+                                        family: 'Arial, Helvetica, sans-serif',
+                                        weight: 'bold'
+                                    },
+                                    color: '#2c3e50'
+                                },
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.1)'
+                                },
+                                ticks: {
+                                    font: { size: 12 }
                                 }
                             },
                             x: {
                                 title: {
                                     display: true,
                                     text: 'Categories',
-                                    font: { size: 14, family: 'Arial, Helvetica, sans-serif' },
-                                    color: '#333333'
+                                    font: {
+                                        size: 16,
+                                        family: 'Arial, Helvetica, sans-serif',
+                                        weight: 'bold'
+                                    },
+                                    color: '#2c3e50'
                                 },
-                                ticks: { maxRotation: 45 }
+                                ticks: {
+                                    maxRotation: 45,
+                                    font: { size: 12 }
+                                },
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.1)'
+                                }
                             }
                         },
-                        layout: { padding: 20 }
+                        layout: {
+                            padding: 30
+                        }
                     }
                 };
         }
-    }
-
-    getChartJSColors(count) {
-        const colors = [
-            'rgba(54, 162, 235, 0.8)', 'rgba(255, 99, 132, 0.8)', 'rgba(255, 206, 86, 0.8)',
-            'rgba(75, 192, 192, 0.8)', 'rgba(153, 102, 255, 0.8)', 'rgba(255, 159, 64, 0.8)',
-            'rgba(199, 199, 199, 0.8)', 'rgba(83, 102, 255, 0.8)'
-        ];
-        return Array.from({ length: count }, (_, i) => colors[i % colors.length]);
     }
 
     // Clean up a specific graph file after it's been sent
