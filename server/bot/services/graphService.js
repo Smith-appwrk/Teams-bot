@@ -7,6 +7,9 @@ class GraphService {
         this.outputDir = path.join(__dirname, '../../temp/graphs');
         this.ensureOutputDir();
 
+        // Configure fonts for better Azure compatibility
+        this.configureFonts();
+
         // Initialize Chart.js canvas with enhanced configuration
         this.chartJSNodeCanvas = new ChartJSNodeCanvas({
             width: 1200,
@@ -26,20 +29,37 @@ class GraphService {
                     ChartJS.Legend
                 );
 
-                // Enhanced default styling
-                ChartJS.defaults.font.family = 'Arial, Helvetica, sans-serif';
-                ChartJS.defaults.font.size = 14;
+                // Enhanced default styling with system-safe fonts for Azure
+                const systemSafeFonts = this.getSystemSafeFonts();
+
+                ChartJS.defaults.font.family = systemSafeFonts;
+                ChartJS.defaults.font.size = 12;
                 ChartJS.defaults.color = '#333333';
                 ChartJS.defaults.plugins.legend.labels.usePointStyle = true;
-                ChartJS.defaults.plugins.legend.labels.padding = 20;
+                ChartJS.defaults.plugins.legend.labels.padding = 15;
 
                 // Set default border radius for bars
                 if (ChartJS.defaults.elements && ChartJS.defaults.elements.bar) {
-                    ChartJS.defaults.elements.bar.borderRadius = 8;
+                    ChartJS.defaults.elements.bar.borderRadius = 6;
                     ChartJS.defaults.elements.bar.borderSkipped = false;
                 }
             }
         });
+    }
+
+    configureFonts() {
+        try {
+            // Set environment variables for canvas font fallbacks
+            process.env.PANGOCAIRO_BACKEND = 'fontconfig';
+            process.env.FONTCONFIG_PATH = process.env.FONTCONFIG_PATH || '/etc/fonts';
+        } catch (error) {
+            console.log('Font configuration warning:', error.message);
+        }
+    }
+
+    getSystemSafeFonts() {
+        // More conservative font stack for server environments
+        return 'DejaVu Sans, Liberation Sans, sans-serif';
     }
 
     ensureOutputDir() {
@@ -136,6 +156,9 @@ class GraphService {
     createChartJSConfig(data, type, title) {
         const { labels, data: values, units } = data;
 
+        // Use conservative fonts for cross-platform compatibility
+        const systemSafeFonts = this.getSystemSafeFonts();
+
         // Enhanced color palettes
         const colorPalettes = {
             primary: [
@@ -175,8 +198,8 @@ class GraphService {
                             data: values,
                             backgroundColor: getColors(labels.length),
                             borderColor: getColors(labels.length, 'borders'),
-                            borderWidth: 3,
-                            hoverBorderWidth: 5
+                            borderWidth: 2,
+                            hoverBorderWidth: 3
                         }]
                     },
                     options: {
@@ -187,18 +210,18 @@ class GraphService {
                                 display: true,
                                 text: title,
                                 font: {
-                                    size: 24,
+                                    size: 18,
                                     weight: 'bold',
-                                    family: 'Arial, Helvetica, sans-serif'
+                                    family: systemSafeFonts
                                 },
-                                padding: 30,
+                                padding: 20,
                                 color: '#2c3e50'
                             },
                             legend: {
                                 position: 'right',
                                 labels: {
-                                    font: { size: 14 },
-                                    padding: 20,
+                                    font: { size: 11, family: systemSafeFonts },
+                                    padding: 12,
                                     usePointStyle: true,
                                     generateLabels: function (chart) {
                                         const data = chart.data;
@@ -212,7 +235,7 @@ class GraphService {
                                                     text: `${label}: ${value}${unit} (${percentage}%)`,
                                                     fillStyle: data.datasets[0].backgroundColor[i],
                                                     strokeStyle: data.datasets[0].borderColor[i],
-                                                    lineWidth: 2,
+                                                    lineWidth: 1,
                                                     index: i
                                                 };
                                             });
@@ -222,6 +245,8 @@ class GraphService {
                                 }
                             },
                             tooltip: {
+                                titleFont: { family: systemSafeFonts, size: 12 },
+                                bodyFont: { family: systemSafeFonts, size: 11 },
                                 callbacks: {
                                     label: function (context) {
                                         const label = context.label || '';
@@ -236,10 +261,10 @@ class GraphService {
                         },
                         layout: {
                             padding: {
-                                top: 20,
-                                bottom: 20,
-                                left: 20,
-                                right: 150
+                                top: 15,
+                                bottom: 15,
+                                left: 15,
+                                right: 120
                             }
                         }
                     }
@@ -255,14 +280,14 @@ class GraphService {
                             data: values,
                             borderColor: 'rgba(54, 162, 235, 1)',
                             backgroundColor: 'rgba(54, 162, 235, 0.1)',
-                            borderWidth: 4,
+                            borderWidth: 3,
                             fill: true,
                             tension: 0.4,
                             pointBackgroundColor: 'rgba(54, 162, 235, 1)',
                             pointBorderColor: '#ffffff',
-                            pointBorderWidth: 3,
-                            pointRadius: 8,
-                            pointHoverRadius: 12
+                            pointBorderWidth: 2,
+                            pointRadius: 6,
+                            pointHoverRadius: 8
                         }]
                     },
                     options: {
@@ -273,17 +298,19 @@ class GraphService {
                                 display: true,
                                 text: title,
                                 font: {
-                                    size: 24,
+                                    size: 18,
                                     weight: 'bold',
-                                    family: 'Arial, Helvetica, sans-serif'
+                                    family: systemSafeFonts
                                 },
-                                padding: 30,
+                                padding: 20,
                                 color: '#2c3e50'
                             },
                             legend: {
                                 display: false
                             },
                             tooltip: {
+                                titleFont: { family: systemSafeFonts, size: 12 },
+                                bodyFont: { family: systemSafeFonts, size: 11 },
                                 callbacks: {
                                     label: function (context) {
                                         const unit = units && units[0] ? ` ${units[0]}` : '';
@@ -299,8 +326,8 @@ class GraphService {
                                     display: true,
                                     text: units && units[0] ? `Value (${units[0]})` : 'Value',
                                     font: {
-                                        size: 16,
-                                        family: 'Arial, Helvetica, sans-serif',
+                                        size: 12,
+                                        family: systemSafeFonts,
                                         weight: 'bold'
                                     },
                                     color: '#2c3e50'
@@ -309,7 +336,7 @@ class GraphService {
                                     color: 'rgba(0, 0, 0, 0.1)'
                                 },
                                 ticks: {
-                                    font: { size: 12 }
+                                    font: { size: 10, family: systemSafeFonts }
                                 }
                             },
                             x: {
@@ -317,15 +344,15 @@ class GraphService {
                                     display: true,
                                     text: 'Categories',
                                     font: {
-                                        size: 16,
-                                        family: 'Arial, Helvetica, sans-serif',
+                                        size: 12,
+                                        family: systemSafeFonts,
                                         weight: 'bold'
                                     },
                                     color: '#2c3e50'
                                 },
                                 ticks: {
                                     maxRotation: 45,
-                                    font: { size: 12 }
+                                    font: { size: 10, family: systemSafeFonts }
                                 },
                                 grid: {
                                     color: 'rgba(0, 0, 0, 0.1)'
@@ -333,7 +360,7 @@ class GraphService {
                             }
                         },
                         layout: {
-                            padding: 30
+                            padding: 20
                         }
                     }
                 };
@@ -350,7 +377,7 @@ class GraphService {
                             backgroundColor: getColors(labels.length),
                             borderColor: getColors(labels.length, 'borders'),
                             borderWidth: 2,
-                            borderRadius: 8,
+                            borderRadius: 6,
                             borderSkipped: false,
                             hoverBackgroundColor: getColors(labels.length).map(color =>
                                 color.replace('0.8', '1')
@@ -366,17 +393,19 @@ class GraphService {
                                 display: true,
                                 text: title,
                                 font: {
-                                    size: 24,
+                                    size: 18,
                                     weight: 'bold',
-                                    family: 'Arial, Helvetica, sans-serif'
+                                    family: systemSafeFonts
                                 },
-                                padding: 30,
+                                padding: 20,
                                 color: '#2c3e50'
                             },
                             legend: {
                                 display: false
                             },
                             tooltip: {
+                                titleFont: { family: systemSafeFonts, size: 12 },
+                                bodyFont: { family: systemSafeFonts, size: 11 },
                                 callbacks: {
                                     label: function (context) {
                                         const unit = units && units[context.dataIndex] ? ` ${units[context.dataIndex]}` : '';
@@ -392,8 +421,8 @@ class GraphService {
                                     display: true,
                                     text: units && units[0] ? `Value (${units[0]})` : 'Value',
                                     font: {
-                                        size: 16,
-                                        family: 'Arial, Helvetica, sans-serif',
+                                        size: 12,
+                                        family: systemSafeFonts,
                                         weight: 'bold'
                                     },
                                     color: '#2c3e50'
@@ -402,7 +431,7 @@ class GraphService {
                                     color: 'rgba(0, 0, 0, 0.1)'
                                 },
                                 ticks: {
-                                    font: { size: 12 }
+                                    font: { size: 10, family: systemSafeFonts }
                                 }
                             },
                             x: {
@@ -410,15 +439,15 @@ class GraphService {
                                     display: true,
                                     text: 'Categories',
                                     font: {
-                                        size: 16,
-                                        family: 'Arial, Helvetica, sans-serif',
+                                        size: 12,
+                                        family: systemSafeFonts,
                                         weight: 'bold'
                                     },
                                     color: '#2c3e50'
                                 },
                                 ticks: {
                                     maxRotation: 45,
-                                    font: { size: 12 }
+                                    font: { size: 10, family: systemSafeFonts }
                                 },
                                 grid: {
                                     color: 'rgba(0, 0, 0, 0.1)'
@@ -426,7 +455,7 @@ class GraphService {
                             }
                         },
                         layout: {
-                            padding: 30
+                            padding: 20
                         }
                     }
                 };
