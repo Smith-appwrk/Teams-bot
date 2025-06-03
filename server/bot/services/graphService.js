@@ -75,6 +75,8 @@ class GraphService {
             // Set canvas text rendering mode to better handle non-Latin characters
             if (process.env.WEBSITE_SITE_NAME || process.env.APPSETTING_WEBSITE_SITE_NAME) {
                 console.log('Running on Azure App Service, applying special font configuration');
+                // On Azure, we need to be more aggressive with font settings
+                process.env.NODE_CANVAS_TEXT_MODE = 'path';
             }
         } catch (error) {
             console.log('Font configuration warning:', error.message);
@@ -82,9 +84,9 @@ class GraphService {
     }
 
     getSystemSafeFonts() {
-        // More conservative font stack for server environments
-        // Use web-safe fonts that are available on most systems including Azure
-        return 'Arial, Helvetica, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+        // Use only the most basic fonts that are guaranteed to be available on all systems
+        // For Azure App Service, we need to be extremely conservative
+        return 'sans-serif';
     }
 
     ensureOutputDir() {
@@ -179,7 +181,9 @@ class GraphService {
     }
 
     createChartJSConfig(data, type, title) {
-        const { labels, data: values, units } = data;
+        // Process labels to ensure they're compatible with server rendering
+        const processedData = this.preprocessChartData(data);
+        const { labels, data: values, units } = processedData;
 
         // Use conservative fonts for cross-platform compatibility
         const systemSafeFonts = this.getSystemSafeFonts();
@@ -488,18 +492,41 @@ class GraphService {
     }
 
     // Clean up a specific graph file after it's been sent
-    async cleanupGraphFile(filePath) {
+    async cleanupGraphFile(filepath) {
         try {
-            // Only attempt cleanup for actual file paths, not buffer objects
-            if (typeof filePath === 'string' && filePath && fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath);
-                console.log('Cleaned up graph file:', filePath);
-            } else if (typeof filePath === 'object' && filePath.isBuffer) {
-                console.log('Buffer object cleanup not needed');
+            if (filepath && typeof filepath === 'string' && fs.existsSync(filepath)) {
+                fs.unlinkSync(filepath);
+                console.log('Cleaned up graph file:', filepath);
             }
         } catch (error) {
-            console.error('Error cleaning up graph file:', filePath, error.message);
+            console.error('Error cleaning up graph file:', error);
         }
+    }
+
+    preprocessChartData(data) {
+        // Create a deep copy to avoid modifying the original data
+        const processedData = JSON.parse(JSON.stringify(data));
+        
+        // Process labels to ensure they're compatible with server rendering
+        if (processedData.labels && Array.isArray(processedData.labels)) {
+            processedData.labels = processedData.labels.map(label => {
+                if (typeof label !== 'string') {
+                    return String(label);
+                }
+                
+                // Handle potential encoding issues by using ASCII-safe characters
+                // This ensures labels will display properly even with limited font support
+                return label
+                    // Replace any non-ASCII characters with their closest ASCII equivalent
+                    .normalize('NFKD')
+                    // Remove any remaining non-ASCII characters
+                    .replace(/[^\x00-\x7F]/g, '');
+            });
+            
+            console.log('Preprocessed chart labels for server compatibility:', processedData.labels);
+        }
+        
+        return processedData;
     }
 
     // Clean up old graph files (older than 1 hour)
