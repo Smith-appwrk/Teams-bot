@@ -10,8 +10,12 @@ const { createCanvas } = require('canvas');
  */
 class SVGGraphService {
     constructor() {
-        this.outputDir = path.join(__dirname, '../../temp/graphs');
-        this.ensureOutputDir();
+        // Use wwwroot/images directory for static file serving
+        this.staticImagesDir = path.join(__dirname, '../../../wwwroot/images');
+        this.tempDir = path.join(__dirname, '../../temp/graphs');
+        
+        this.ensureDirectories();
+        this.startCleanupTimer();
 
         // Initialize Chart.js canvas with minimal configuration
         this.chartJSNodeCanvas = new ChartJSNodeCanvas({
@@ -40,9 +44,29 @@ class SVGGraphService {
         });
     }
 
-    ensureOutputDir() {
+    ensureDirectories() {
+        // First ensure static images directory exists
         try {
-            // For Azure App Service, use the writable temp directory
+            if (!fs.existsSync(this.staticImagesDir)) {
+                fs.mkdirSync(this.staticImagesDir, { recursive: true });
+                console.log('Created static images directory:', this.staticImagesDir);
+            }
+            
+            // Test write access to static directory
+            const testFile = path.join(this.staticImagesDir, 'test_write.tmp');
+            fs.writeFileSync(testFile, 'test');
+            fs.unlinkSync(testFile);
+            console.log('Static images directory is writable:', this.staticImagesDir);
+            
+            // Use static images directory as primary output
+            this.outputDir = this.staticImagesDir;
+            return;
+        } catch (error) {
+            console.warn('Static images directory is not writable, falling back to temp directory:', error.message);
+        }
+        
+        try {
+            // For Azure App Service, use the writable temp directory if static dir fails
             const isAzure = process.env.WEBSITE_SITE_NAME || process.env.APPSETTING_WEBSITE_SITE_NAME;
 
             if (isAzure) {
@@ -77,7 +101,7 @@ class SVGGraphService {
             }
 
             // Fallback for local development
-            this.outputDir = path.join(__dirname, '../../temp/graphs');
+            this.outputDir = this.tempDir;
             if (!fs.existsSync(this.outputDir)) {
                 fs.mkdirSync(this.outputDir, { recursive: true });
                 console.log('Created local graph output directory:', this.outputDir);
@@ -286,18 +310,32 @@ class SVGGraphService {
             // Combine chart image with SVG labels
             const finalBuffer = await this.combineChartWithLabels(imageBuffer, svgLabels, type);
             
+            // Generate a unique filename with timestamp and random string
+            const randomString = Math.random().toString(36).substring(2, 11);
+            const filename = `graph_${Date.now()}_${randomString}.png`;
+            
             // If no writable directory is available, return buffer directly
             if (!this.outputDir) {
                 console.log('No writable directory available, returning image buffer directly');
                 return { buffer: finalBuffer, isBuffer: true };
             }
 
-            const filename = `graph_${Date.now()}.png`;
             const filepath = path.join(this.outputDir, filename);
 
             try {
                 fs.writeFileSync(filepath, finalBuffer);
                 console.log('Chart saved to:', filepath);
+                
+                // Determine if we're using the static directory and return URL
+                if (this.outputDir === this.staticImagesDir) {
+                    // For static files, return the URL instead of the file path
+                    const baseUrl = process.env.APP_SERVICE_URL || `http://localhost:${process.env.PORT || 3978}`;
+                    const imageUrl = `${baseUrl}/images/${filename}`;
+                    console.log('Chart URL:', imageUrl);
+                    return { url: imageUrl, filepath: filepath };
+                }
+                
+                // Otherwise return filepath for backward compatibility
                 return filepath;
             } catch (writeError) {
                 console.error('Failed to write chart to disk:', writeError);
@@ -451,6 +489,58 @@ class SVGGraphService {
             }
         } catch (error) {
             console.error('Error cleaning up graph file:', error);
+        }
+    }
+    
+    /**
+     * Start timer to clean up old images periodically
+     */
+    startCleanupTimer() {
+        // Clean every 10 minutes
+        const interval = 10 * 60 * 1000;
+        setInterval(() => {
+            this.cleanupOldImages();
+        }, interval);
+        console.log(`Cleanup timer started, will run every ${interval/60000} minutes`);
+    }
+    
+    /**
+     * Clean up old images to prevent disk space issues
+     */
+    cleanupOldImages() {
+        try {
+            if (!this.staticImagesDir || !fs.existsSync(this.staticImagesDir)) {
+                return;
+            }
+            
+            console.log('Running cleanup of old graph images...');
+            const files = fs.readdirSync(this.staticImagesDir);
+            const now = Date.now();
+            let cleanedCount = 0;
+            
+            files.forEach(file => {
+                // Only clean graph files we've generated
+                if (!file.startsWith('graph_')) {
+                    return;
+                }
+                
+                const filePath = path.join(this.staticImagesDir, file);
+                const stats = fs.statSync(filePath);
+                const fileAge = now - stats.mtime.getTime();
+                
+                // Delete files older than 30 minutes
+                const maxAge = 30 * 60 * 1000; // 30 minutes
+                if (fileAge > maxAge) {
+                    fs.unlinkSync(filePath);
+                    cleanedCount++;
+                }
+            });
+            
+            if (cleanedCount > 0) {
+                console.log(`Cleaned up ${cleanedCount} old graph images`);
+            }
+        } catch (error) {
+            console.error('Error cleaning up images:', error);
         }
     }
 }

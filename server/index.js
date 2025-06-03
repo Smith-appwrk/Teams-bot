@@ -10,6 +10,18 @@ appInsights.setup(process.env.APPINSIGHTS_INSTRUMENTATIONKEY)
     .start();
 
 const server = express();
+
+// Create images directory for graph storage
+const imagesDir = path.join(__dirname, 'wwwroot', 'images');
+const fs = require('fs');
+if (!fs.existsSync(imagesDir)) {
+    fs.mkdirSync(imagesDir, { recursive: true });
+}
+
+// Serve static files for graph images
+server.use('/images', express.static(imagesDir));
+
+// API routes
 server.use('/api', require('./api'));
 
 server.get('*', (req, res) => {
