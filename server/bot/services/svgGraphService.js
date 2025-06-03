@@ -10,9 +10,22 @@ const { createCanvas } = require('canvas');
  */
 class SVGGraphService {
     constructor() {
-        // Use wwwroot/images directory for static file serving
-        this.staticImagesDir = path.join(__dirname, '../../../wwwroot/images');
-        this.tempDir = path.join(__dirname, '../../temp/graphs');
+        // Check if running on Azure App Service
+        this.isAzure = process.env.WEBSITE_SITE_NAME !== undefined;
+
+        // Set up proper paths based on environment
+        if (this.isAzure) {
+            // On Azure App Service, use the writable wwwroot directory at the site root
+            this.staticImagesDir = path.join(process.env.HOME || '', 'site', 'wwwroot', 'images');
+            this.tempDir = path.join(process.env.TEMP || require('os').tmpdir(), 'teamsbot-graphs');
+        } else {
+            // Local development environment - use server/wwwroot/images
+            this.staticImagesDir = path.join(__dirname, '../../../wwwroot/images');
+            this.tempDir = path.join(__dirname, '../../temp/graphs');
+        }
+        
+        console.log(`SVGGraphService using staticImagesDir: ${this.staticImagesDir}`);
+        console.log(`SVGGraphService using tempDir: ${this.tempDir}`);
         
         this.ensureDirectories();
         this.startCleanupTimer();
@@ -49,7 +62,7 @@ class SVGGraphService {
         try {
             if (!fs.existsSync(this.staticImagesDir)) {
                 fs.mkdirSync(this.staticImagesDir, { recursive: true });
-                console.log('Created static images directory:', this.staticImagesDir);
+                console.log(`Created static images directory at: ${this.staticImagesDir}`);
             }
             
             // Test write access to static directory
@@ -327,16 +340,32 @@ class SVGGraphService {
                 console.log('Chart saved to:', filepath);
                 
                 // Determine if we're using the static directory and return URL
-                if (this.outputDir === this.staticImagesDir) {
-                    // For static files, return the URL instead of the file path
-                    const baseUrl = process.env.APP_SERVICE_URL || `http://localhost:${process.env.PORT || 3978}`;
-                    const imageUrl = `${baseUrl}/images/${filename}`;
-                    console.log('Chart URL:', imageUrl);
-                    return { url: imageUrl, filepath: filepath };
+                let baseUrl;
+                
+                if (this.isAzure) {
+                    // Azure App Service environment
+                    baseUrl = process.env.WEBSITE_HOSTNAME ? 
+                        `https://${process.env.WEBSITE_HOSTNAME}` : 
+                        process.env.APP_SERVICE_URL;
+                } else {
+                    // Local development fallback
+                    const port = process.env.PORT || 3978;
+                    baseUrl = `http://localhost:${port}`;
                 }
                 
-                // Otherwise return filepath for backward compatibility
-                return filepath;
+                if (!baseUrl) {
+                    // Final fallback
+                    baseUrl = process.env.APP_SERVICE_URL || 'https://yourappname.azurewebsites.net';
+                }
+                
+                // Ensure no trailing slash in the baseUrl
+                if (baseUrl.endsWith('/')) {
+                    baseUrl = baseUrl.slice(0, -1);
+                }
+                
+                const imageUrl = `${baseUrl}/images/${filename}`;
+                console.log('Chart URL:', imageUrl);
+                return { url: imageUrl, filepath: filepath };
             } catch (writeError) {
                 console.error('Failed to write chart to disk:', writeError);
                 console.log('Falling back to in-memory buffer');
