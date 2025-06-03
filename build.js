@@ -4,7 +4,15 @@ esbuild.build({
     bundle: true,
     platform: 'node',
     outfile: 'dist/index.js',
-    external: ['typescript'], // Mark typescript as external
+    // Exclude native modules and their dependencies from bundling
+    external: [
+        'typescript',
+        'canvas', // Native module with .node bindings
+        'chart.js', // Used with require.resolve
+        'chartjs-node-canvas', // Depends on canvas
+        '@mapbox/node-pre-gyp', // Native module helper
+        'node-gyp'
+    ],
     loader: { '.ts': 'js' }, // Handle TypeScript files
 })
     .then((r) => {
