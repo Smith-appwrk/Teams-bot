@@ -15,13 +15,6 @@ class GraphService {
             width: 1200,
             height: 700,
             backgroundColour: 'white',
-            // Explicitly set canvas options for better cross-platform support
-            plugins: {
-                modern: true,
-                requireLegacy: false
-            },
-            // Ensure text encoding is properly handled
-            encoding: 'utf8',
             chartCallback: (ChartJS) => {
                 // Register Chart.js plugins and components
                 ChartJS.register(
@@ -76,10 +69,12 @@ class GraphService {
             process.env.PANGOCAIRO_BACKEND = 'fontconfig';
             process.env.FONTCONFIG_PATH = process.env.FONTCONFIG_PATH || '/etc/fonts';
             
-            // Add additional font configuration for Azure
+            // Force use of system fonts on all environments for consistency
+            process.env.NODE_CANVAS_FORCE_SYSTEM_FONTS = 'true';
+            
+            // Set canvas text rendering mode to better handle non-Latin characters
             if (process.env.WEBSITE_SITE_NAME || process.env.APPSETTING_WEBSITE_SITE_NAME) {
-                // Force use of system fonts on Azure
-                process.env.NODE_CANVAS_FORCE_SYSTEM_FONTS = 'true';
+                console.log('Running on Azure App Service, applying special font configuration');
             }
         } catch (error) {
             console.log('Font configuration warning:', error.message);
