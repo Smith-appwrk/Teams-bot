@@ -15,6 +15,13 @@ class GraphService {
             width: 1200,
             height: 700,
             backgroundColour: 'white',
+            // Explicitly set canvas options for better cross-platform support
+            plugins: {
+                modern: true,
+                requireLegacy: false
+            },
+            // Ensure text encoding is properly handled
+            encoding: 'utf8',
             chartCallback: (ChartJS) => {
                 // Register Chart.js plugins and components
                 ChartJS.register(
@@ -33,7 +40,23 @@ class GraphService {
                 const systemSafeFonts = this.getSystemSafeFonts();
 
                 ChartJS.defaults.font.family = systemSafeFonts;
-                ChartJS.defaults.font.size = 12;
+                ChartJS.defaults.font.size = 14; // Slightly larger for better readability
+                
+                // Ensure all text elements use the safe font stack
+                if (ChartJS.defaults.plugins && ChartJS.defaults.plugins.title) {
+                    ChartJS.defaults.plugins.title.font = {
+                        family: systemSafeFonts,
+                        size: 18,
+                        weight: 'bold'
+                    };
+                }
+                
+                if (ChartJS.defaults.plugins && ChartJS.defaults.plugins.legend) {
+                    ChartJS.defaults.plugins.legend.labels.font = {
+                        family: systemSafeFonts,
+                        size: 14
+                    };
+                }
                 ChartJS.defaults.color = '#333333';
                 ChartJS.defaults.plugins.legend.labels.usePointStyle = true;
                 ChartJS.defaults.plugins.legend.labels.padding = 15;
@@ -52,6 +75,12 @@ class GraphService {
             // Set environment variables for canvas font fallbacks
             process.env.PANGOCAIRO_BACKEND = 'fontconfig';
             process.env.FONTCONFIG_PATH = process.env.FONTCONFIG_PATH || '/etc/fonts';
+            
+            // Add additional font configuration for Azure
+            if (process.env.WEBSITE_SITE_NAME || process.env.APPSETTING_WEBSITE_SITE_NAME) {
+                // Force use of system fonts on Azure
+                process.env.NODE_CANVAS_FORCE_SYSTEM_FONTS = 'true';
+            }
         } catch (error) {
             console.log('Font configuration warning:', error.message);
         }
@@ -59,7 +88,8 @@ class GraphService {
 
     getSystemSafeFonts() {
         // More conservative font stack for server environments
-        return 'DejaVu Sans, Liberation Sans, sans-serif';
+        // Use web-safe fonts that are available on most systems including Azure
+        return 'Arial, Helvetica, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
     }
 
     ensureOutputDir() {
