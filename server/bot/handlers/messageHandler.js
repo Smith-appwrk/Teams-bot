@@ -2,7 +2,9 @@ const { MessageFactory, TurnContext } = require('botbuilder');
 const fs = require('fs');
 const path = require('path');
 
+// Import both graph services for compatibility and fallback
 const GraphService = require('../services/graphService');
+const SVGGraphService = require('../services/svgGraphService');
 
 class MessageHandler {
     constructor(openaiService, conversationService, imageService, botActivityHandler) {
@@ -10,7 +12,9 @@ class MessageHandler {
         this.conversationService = conversationService;
         this.imageService = imageService;
         this.botActivityHandler = botActivityHandler;
-        this.graphService = new GraphService();
+        // Initialize both graph services for fallback capability
+        this.svgGraphService = new SVGGraphService();
+        this.graphService = this.svgGraphService; // Use SVG graph service by default
         this.REPLY_TO = (process.env.REPLY_TO || '').split('|').map(name =>
             name.toLowerCase().replaceAll(' ', '')
         );
