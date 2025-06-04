@@ -463,9 +463,13 @@ class SVGGraphService {
             ctx.drawImage(img, 0, 0, 1200, 700);
             
             // Draw the labels based on chart type
-            const { labels } = JSON.parse(svgLabels.match(/<text[^>]*>([^<]*)<\/text>/g).map(
-                tag => tag.replace(/<text[^>]*>([^<]*)<\/text>/, '$1')
-            ));
+            // First, find all full <text>...</text> tag strings
+            const fullTextTagMatches = svgLabels.match(/<text[^>]*>([^<]+)<\/text>/g);
+            // Then, for each full tag string, extract only the inner content
+            const labels = fullTextTagMatches ? fullTextTagMatches.map(fullTag => {
+                const innerContentMatch = fullTag.match(/<text[^>]*>([^<]+)<\/text>/);
+                return innerContentMatch ? innerContentMatch[1].trim() : ''; // Also trim whitespace
+            }) : [];
             
             if (type.toLowerCase() === 'bar' || type.toLowerCase() === 'line') {
                 // Draw labels for bar and line charts
