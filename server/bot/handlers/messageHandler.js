@@ -117,7 +117,7 @@ class MessageHandler {
             console.log('AI extraction failed, falling back to regex extraction');
             graphData = this.openaiService.extractGraphData(response);
         }
-        
+
         // If still no graphable data, return without a graph
         if (!graphData || !graphData.data || graphData.data.length === 0) {
             return {
@@ -128,17 +128,13 @@ class MessageHandler {
 
         console.log('Extracted graph data:', JSON.stringify(graphData));
 
-        // Let AI determine if data is appropriate for visualization
-        let chartType = 'bar';
-        const graphAnalysis = await this.openaiService.analyzeGraphData(graphData);
-
-        if (!graphAnalysis || !graphAnalysis.shouldVisualize) {
-            return {
-                response: response + "\n\n📊 While you requested a graph, this data might not be best represented graphically.",
-                graphPath: null
-            };
-        }
-        chartType = graphAnalysis.graphType || 'bar';
+        // For data that's already been structured for graphing, we can skip analysis
+        // and directly use it (since extractGraphDataWithAI already determined it's graphable)
+        let chartType = graphData.chartType || 'bar';
+        
+        // Use the existing graph data since it's already been processed and determined to be graphable
+        // No need to check canGraph as the extraction already verified this data is suitable
+        console.log('Using chartType:', chartType);
 
         // Use AI-suggested title if available, otherwise create one
         const title = graphData.title ||

@@ -153,42 +153,110 @@ Example outputs:
             return { canGraph: false };
         }
 
+        // Pre-analyze data to see if it contains numerical values that could be graphed
+        const hasNumericalData = this._hasGraphableData(data);
+        if (!hasNumericalData) {
+            return { canGraph: false, reason: "Data does not contain numerical values suitable for graphing" };
+        }
+
         const prompt = `
 Analyze if the following data should be displayed as a graph.
-Return a JSON object with:
-- canGraph: boolean (true if data can be graphed)
-- graphType: "bar" | "line" | "pie" (if canGraph is true)
-- reason: string explaining why
+Return a valid JSON object with:
+- canGraph: boolean (true if data can be displayed as a graph, false otherwise)
+- graphType: "bar" | "line" | "pie" (only if canGraph is true)
+- reason: string explaining your decision
+
+The data is graphable if:
+- It contains numeric values that can be compared or tracked
+- The question is asking for a comparison, trend, or distribution
+- Visualization would enhance understanding
 
 Question: "${question}"
 Data:
 ${JSON.stringify(data)}
 
-Example response:
+Return ONLY a valid JSON object like:
 {
   "canGraph": true,
   "graphType": "bar",
-  "reason": "Data contains numeric values over time periods"
+  "reason": "Data contains numeric values that can be compared"
 }`;
 
-        const completion = await this.openai.chat.completions.create({
-            model: CONFIG.OPENAI_MODEL,
-            messages: [
-                {
-                    role: "system",
-                    content: "You analyze data to determine if it can be displayed graphically"
-                },
-                { role: "user", content: prompt }
-            ],
-            temperature: 0.1
-        });
-
         try {
-            return JSON.parse(completion.choices[0].message.content);
+            const completion = await this.openai.chat.completions.create({
+                model: CONFIG.OPENAI_MODEL,
+                messages: [
+                    {
+                        role: "system",
+                        content: "You are a data visualization expert. Your job is to determine if data can be meaningfully displayed as a graph and what type of graph would be most appropriate."
+                    },
+                    { role: "user", content: prompt }
+                ],
+                temperature: 0.3,
+                response_format: { type: "json_object" }
+            });
+
+            const responseContent = completion.choices[0].message.content;
+            const parsedResponse = JSON.parse(responseContent);
+            
+            // Validate the response format
+            if (typeof parsedResponse.canGraph !== 'boolean') {
+                console.warn("Invalid response format - canGraph is not a boolean:", responseContent);
+                return this._analyzeDataFallback(data);
+            }
+            
+            return parsedResponse;
         } catch (error) {
-            console.error("Error parsing graph analysis:", error);
-            return { canGraph: false };
+            console.error("Error in graph analysis:", error);
+            return this._analyzeDataFallback(data);
         }
+    }
+
+    // Helper method to check if data contains numerical values suitable for graphing
+    _hasGraphableData(data) {
+        if (Array.isArray(data)) {
+            // For arrays, check if elements contain numeric properties
+            return data.some(item => {
+                if (typeof item === 'object') {
+                    return Object.values(item).some(val => typeof val === 'number');
+                }
+                return typeof item === 'number';
+            });
+        } else if (typeof data === 'object') {
+            // For objects, check if values are numeric
+            return Object.values(data).some(val => {
+                if (typeof val === 'number') return true;
+                if (Array.isArray(val)) return val.some(v => typeof v === 'number');
+                return false;
+            });
+        }
+        return false;
+    }
+    
+    // Fallback analysis when API call or parsing fails
+    _analyzeDataFallback(data) {
+        let canGraph = false;
+        let graphType = null;
+        let reason = "Unable to determine if data is graphable";
+        
+        // Simple heuristic analysis
+        if (Array.isArray(data) && data.length >= 2) {
+            const hasNumericValues = data.some(item => {
+                if (typeof item === 'number') return true;
+                if (typeof item === 'object') {
+                    return Object.values(item).some(v => typeof v === 'number');
+                }
+                return false;
+            });
+            
+            if (hasNumericValues) {
+                canGraph = true;
+                graphType = "bar"; // Default to bar chart
+                reason = "Data contains multiple items with numeric values";
+            }
+        }
+        
+        return { canGraph, graphType, reason };
     }
 
     extractGraphData(text) {
