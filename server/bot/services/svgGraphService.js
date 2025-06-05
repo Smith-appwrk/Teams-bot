@@ -12,6 +12,7 @@ class SVGGraphService {
     constructor() {
         // Check if running on Azure App Service
         this.isAzure = process.env.WEBSITE_SITE_NAME !== undefined;
+        console.log(`[SVGGraphService] Running on Azure: ${this.isAzure}`);
 
         // Set up proper paths based on environment
         if (this.isAzure) {
@@ -24,28 +25,41 @@ class SVGGraphService {
             this.tempDir = path.join(__dirname, '../../temp/graphs');
         }
         
-        console.log(`SVGGraphService using staticImagesDir: ${this.staticImagesDir}`);
-        console.log(`SVGGraphService using tempDir: ${this.tempDir}`);
+        console.log(`[SVGGraphService] staticImagesDir: ${this.staticImagesDir}`);
+        console.log(`[SVGGraphService] tempDir: ${this.tempDir}`);
         
-        this.ensureDirectories();
+        this.ensureDirectories(); // This also sets this.outputDir
         this.startCleanupTimer();
 
-        // ADDED: Register a custom font
-        // Assumes DejaVuSans.ttf is in server/assets/fonts/
-        const fontPath = path.join(__dirname, '../../assets/fonts/OpenSans-Regular.ttf'); 
+        // --- Enhanced Font Loading Logic ---
+        const fontFileName = 'OpenSans-Regular.ttf';
+        // __dirname for server/bot/services/svgGraphService.js
+        // Path to server/assets/fonts/OpenSans-Regular.ttf
+        const fontPath = path.resolve(__dirname, '..', '..', 'assets', 'fonts', fontFileName); 
+        
+        console.log(`[FontLoading] Attempting to load font. Resolved path: ${fontPath}`);
         this.defaultFontFamily = 'sans-serif'; // Default fallback
+
         try {
-            if (fs.existsSync(fontPath)) {
-                registerFont(fontPath, { family: 'Open Sans' });
-                console.log(`Successfully registered font: ${fontPath} as 'Open Sans'`);
-                this.defaultFontFamily = 'Open Sans';
+            const fontExists = fs.existsSync(fontPath);
+            console.log(`[FontLoading] Font file exists at '${fontPath}': ${fontExists}`);
+
+            if (fontExists) {
+                try {
+                    registerFont(fontPath, { family: 'Open Sans' });
+                    console.log(`[FontLoading] Successfully called registerFont for '${fontPath}' with family 'Open Sans'.`);
+                    this.defaultFontFamily = 'Open Sans';
+                } catch (regError) {
+                    console.error(`[FontLoading] CRITICAL ERROR during registerFont call for '${fontPath}':`, regError.message, regError.stack);
+                    // Even if registration fails, Chart.js will use the fallback.
+                }
             } else {
-                console.warn(`Font file not found: ${fontPath}. Chart.js will use fallback 'sans-serif'. Consider adding a font file (e.g., DejaVuSans.ttf) to this path for reliable font rendering.`);
+                console.warn(`[FontLoading] FONT FILE NOT FOUND: '${fontPath}'. Please ensure '${fontFileName}' is in 'server/assets/fonts/' and deployed correctly. Chart.js will use fallback 'sans-serif'.`);
             }
-        } catch (fontError) {
-            console.error(`Error registering font at ${fontPath}:`, fontError);
-            // Keep 'sans-serif' as fallback
+        } catch (fontAccessError) {
+            console.error(`[FontLoading] Error accessing font path '${fontPath}' (e.g., fs.existsSync failed):`, fontAccessError.message, fontAccessError.stack);
         }
+        // --- End of Enhanced Font Loading Logic ---
 
         // Initialize Chart.js canvas with minimal configuration
         this.chartJSNodeCanvas = new ChartJSNodeCanvas({
@@ -65,8 +79,7 @@ class SVGGraphService {
                     ChartJS.Tooltip,
                     ChartJS.Legend
                 );
-
-                // MODIFIED: Use the registered font or fallback
+                console.log(`[ChartJSSetup] Setting Chart.js default font family to: '${this.defaultFontFamily}'`);
                 ChartJS.defaults.font.family = this.defaultFontFamily;
                 ChartJS.defaults.font.size = 12;
                 ChartJS.defaults.color = '#333333';
