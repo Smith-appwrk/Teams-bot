@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { ChartJSNodeCanvas } = require('chartjs-node-canvas');
-const { createCanvas } = require('canvas');
+const { createCanvas, registerFont } = require('canvas'); // MODIFIED: Added registerFont
 
 /**
  * SVG Graph Service
@@ -30,6 +30,23 @@ class SVGGraphService {
         this.ensureDirectories();
         this.startCleanupTimer();
 
+        // ADDED: Register a custom font
+        // Assumes DejaVuSans.ttf is in server/assets/fonts/
+        const fontPath = path.join(__dirname, '../../assets/fonts/OpenSans-Regular.ttf'); 
+        this.defaultFontFamily = 'sans-serif'; // Default fallback
+        try {
+            if (fs.existsSync(fontPath)) {
+                registerFont(fontPath, { family: 'Open Sans' });
+                console.log(`Successfully registered font: ${fontPath} as 'Open Sans'`);
+                this.defaultFontFamily = 'Open Sans';
+            } else {
+                console.warn(`Font file not found: ${fontPath}. Chart.js will use fallback 'sans-serif'. Consider adding a font file (e.g., DejaVuSans.ttf) to this path for reliable font rendering.`);
+            }
+        } catch (fontError) {
+            console.error(`Error registering font at ${fontPath}:`, fontError);
+            // Keep 'sans-serif' as fallback
+        }
+
         // Initialize Chart.js canvas with minimal configuration
         this.chartJSNodeCanvas = new ChartJSNodeCanvas({
             width: 1200,
@@ -49,8 +66,8 @@ class SVGGraphService {
                     ChartJS.Legend
                 );
 
-                // Use minimal text for the chart itself - labels will be added via SVG
-                ChartJS.defaults.font.family = 'sans-serif';
+                // MODIFIED: Use the registered font or fallback
+                ChartJS.defaults.font.family = this.defaultFontFamily;
                 ChartJS.defaults.font.size = 12;
                 ChartJS.defaults.color = '#333333';
             }
