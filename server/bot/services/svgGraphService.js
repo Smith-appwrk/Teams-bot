@@ -1,44 +1,32 @@
 const fs = require('fs');
 const path = require('path');
 const { ChartJSNodeCanvas } = require('chartjs-node-canvas');
-const { createCanvas, registerFont } = require('canvas'); // MODIFIED: Added registerFont
+const { createCanvas, registerFont } = require('canvas');
 
-/**
- * SVG Graph Service
- * Uses a hybrid approach to generate charts where labels are rendered as SVG elements
- * instead of relying on canvas text rendering.
- */
 class SVGGraphService {
     constructor() {
-        // Check if running on Azure App Service
         this.isAzure = process.env.WEBSITE_SITE_NAME !== undefined;
         console.log(`[SVGGraphService] Running on Azure: ${this.isAzure}`);
 
-        // Set up proper paths based on environment
         if (this.isAzure) {
-            // On Azure App Service, use the writable wwwroot directory at the site root
             this.staticImagesDir = path.join(process.env.HOME || '', 'site', 'wwwroot', 'images');
             this.tempDir = path.join(process.env.TEMP || require('os').tmpdir(), 'teamsbot-graphs');
         } else {
-            // Local development environment - use server/wwwroot/images
             this.staticImagesDir = path.join(__dirname, '../../../wwwroot/images');
             this.tempDir = path.join(__dirname, '../../temp/graphs');
         }
-
+        
         console.log(`[SVGGraphService] staticImagesDir: ${this.staticImagesDir}`);
         console.log(`[SVGGraphService] tempDir: ${this.tempDir}`);
-
-        this.ensureDirectories(); // This also sets this.outputDir
+        
+        this.ensureDirectories();
         this.startCleanupTimer();
 
-        // --- Enhanced Font Loading Logic ---
         const fontFileName = 'OpenSans-Regular.ttf';
-        // __dirname for server/bot/services/svgGraphService.js
-        // Path to server/assets/fonts/OpenSans-Regular.ttf
-        const fontPath = path.resolve(__dirname, '..', '..', 'assets', 'fonts', fontFileName);
-
+        const fontPath = path.resolve(__dirname, '..', '..', 'assets', 'fonts', fontFileName); 
+        
         console.log(`[FontLoading] Attempting to load font. Resolved path: ${fontPath}`);
-        this.defaultFontFamily = 'sans-serif'; // Default fallback
+        this.defaultFontFamily = 'sans-serif';
 
         try {
             const fontExists = fs.existsSync(fontPath);
@@ -51,7 +39,6 @@ class SVGGraphService {
                     this.defaultFontFamily = 'Open Sans';
                 } catch (regError) {
                     console.error(`[FontLoading] CRITICAL ERROR during registerFont call for '${fontPath}':`, regError.message, regError.stack);
-                    // Even if registration fails, Chart.js will use the fallback.
                 }
             } else {
                 console.warn(`[FontLoading] FONT FILE NOT FOUND: '${fontPath}'. Please ensure '${fontFileName}' is in 'server/assets/fonts/' and deployed correctly. Chart.js will use fallback 'sans-serif'.`);
@@ -59,15 +46,12 @@ class SVGGraphService {
         } catch (fontAccessError) {
             console.error(`[FontLoading] Error accessing font path '${fontPath}' (e.g., fs.existsSync failed):`, fontAccessError.message, fontAccessError.stack);
         }
-        // --- End of Enhanced Font Loading Logic ---
 
-        // Initialize Chart.js canvas with minimal configuration
         this.chartJSNodeCanvas = new ChartJSNodeCanvas({
             width: 1200,
             height: 700,
             backgroundColour: 'white',
             chartCallback: (ChartJS) => {
-                // Register Chart.js plugins and components
                 ChartJS.register(
                     ChartJS.CategoryScale,
                     ChartJS.LinearScale,
@@ -88,32 +72,27 @@ class SVGGraphService {
     }
 
     ensureDirectories() {
-        // First ensure static images directory exists
         try {
             if (!fs.existsSync(this.staticImagesDir)) {
                 fs.mkdirSync(this.staticImagesDir, { recursive: true });
                 console.log(`Created static images directory at: ${this.staticImagesDir}`);
             }
-
-            // Test write access to static directory
+            
             const testFile = path.join(this.staticImagesDir, 'test_write.tmp');
             fs.writeFileSync(testFile, 'test');
             fs.unlinkSync(testFile);
             console.log('Static images directory is writable:', this.staticImagesDir);
-
-            // Use static images directory as primary output
+            
             this.outputDir = this.staticImagesDir;
             return;
         } catch (error) {
             console.warn('Static images directory is not writable, falling back to temp directory:', error.message);
         }
-
+        
         try {
-            // For Azure App Service, use the writable temp directory if static dir fails
             const isAzure = process.env.WEBSITE_SITE_NAME || process.env.APPSETTING_WEBSITE_SITE_NAME;
 
             if (isAzure) {
-                // Azure App Service writable directories
                 const azureTempPaths = [
                     '/tmp/graphs',
                     '/home/LogFiles/graphs',
@@ -130,7 +109,6 @@ class SVGGraphService {
                         if (!fs.existsSync(this.outputDir)) {
                             fs.mkdirSync(this.outputDir, { recursive: true });
                         }
-                        // Test write access
                         const testFile = path.join(this.outputDir, 'test_write.tmp');
                         fs.writeFileSync(testFile, 'test');
                         fs.unlinkSync(testFile);
@@ -143,7 +121,6 @@ class SVGGraphService {
                 }
             }
 
-            // Fallback for local development
             this.outputDir = this.tempDir;
             if (!fs.existsSync(this.outputDir)) {
                 fs.mkdirSync(this.outputDir, { recursive: true });
@@ -151,7 +128,6 @@ class SVGGraphService {
             }
         } catch (error) {
             console.error('Error creating graph output directory:', error);
-            // Last resort: use system temp directory
             this.outputDir = path.join(require('os').tmpdir(), 'bot-graphs');
             try {
                 if (!fs.existsSync(this.outputDir)) {
@@ -164,27 +140,19 @@ class SVGGraphService {
         }
     }
 
-    /**
-     * Generate a basic chart without labels
-     * @param {Object} data - Chart data
-     * @param {string} type - Chart type
-     * @param {string} title - Chart title
-     * @returns {Object} - Chart configuration
-     */
     createBaseChartConfig(data, type, title) {
         const { data: values, units } = data;
-
-        // Enhanced color palettes
+        
         const colorPalettes = {
             primary: [
-                'rgba(54, 162, 235, 0.8)',   // Blue
-                'rgba(255, 99, 132, 0.8)',   // Red
-                'rgba(75, 192, 192, 0.8)',   // Teal
-                'rgba(255, 206, 86, 0.8)',   // Yellow
-                'rgba(153, 102, 255, 0.8)',  // Purple
-                'rgba(255, 159, 64, 0.8)',   // Orange
-                'rgba(199, 199, 199, 0.8)',  // Grey
-                'rgba(83, 102, 255, 0.8)'    // Indigo
+                'rgba(54, 162, 235, 0.8)',
+                'rgba(255, 99, 132, 0.8)',
+                'rgba(75, 192, 192, 0.8)',
+                'rgba(255, 206, 86, 0.8)',
+                'rgba(153, 102, 255, 0.8)',
+                'rgba(255, 159, 64, 0.8)',
+                'rgba(199, 199, 199, 0.8)',
+                'rgba(83, 102, 255, 0.8)'
             ],
             borders: [
                 'rgba(54, 162, 235, 1)',
@@ -202,7 +170,6 @@ class SVGGraphService {
             return Array.from({ length: count }, (_, i) => colorPalettes[type][i % colorPalettes[type].length]);
         };
 
-        // Empty labels - we'll add them later with SVG
         const emptyLabels = Array(values.length).fill('');
 
         switch (type.toLowerCase()) {
@@ -330,34 +297,66 @@ class SVGGraphService {
         }
     }
 
-    /**
-     * Generate a chart with SVG overlays for labels
-     * @param {Object} data - Chart data with labels and values
-     * @param {string} type - Chart type
-     * @param {string} title - Chart title
-     * @returns {Promise<string|Object>} - File path or buffer object
-     */
     async generateGraph(data, type = 'bar', title = 'Data Visualization') {
         try {
             console.log('Generating chart with canvas labels:', { type, title });
-
-            // ... existing code to create baseConfig and imageBuffer ...
-
-            // Calculate label positions
+            
+            const baseConfig = this.createBaseChartConfig(data, type, title);
+            const imageBuffer = await this.chartJSNodeCanvas.renderToBuffer(baseConfig);
+            
             const labelPositions = this.calculateLabelPositions(data, type, 1200, 700);
             console.log(`Label positions calculated: ${labelPositions.length} labels`);
-
-            // Combine chart image with label positions
+            
             const finalBuffer = await this.combineChartWithLabels(imageBuffer, labelPositions);
+            
+            const randomString = Math.random().toString(36).substring(2, 11);
+            const filename = `graph_${Date.now()}_${randomString}.png`;
+            
+            if (!this.outputDir) {
+                console.log('No writable directory available, returning image buffer directly');
+                return { buffer: finalBuffer, isBuffer: true };
+            }
 
-            // ... rest of existing code (filename generation, saving, etc) ...
+            const filepath = path.join(this.outputDir, filename);
+
+            try {
+                fs.writeFileSync(filepath, finalBuffer);
+                console.log('Chart saved to:', filepath);
+                
+                let baseUrl;
+                
+                if (this.isAzure) {
+                    baseUrl = process.env.WEBSITE_HOSTNAME ? 
+                        `https://${process.env.WEBSITE_HOSTNAME}` : 
+                        process.env.APP_SERVICE_URL;
+                } else {
+                    const port = process.env.PORT || 3978;
+                    baseUrl = `http://localhost:${port}`;
+                }
+                
+                if (!baseUrl) {
+                    baseUrl = process.env.APP_SERVICE_URL || 'https://yourappname.azurewebsites.net';
+                }
+                
+                if (baseUrl.endsWith('/')) {
+                    baseUrl = baseUrl.slice(0, -1);
+                }
+                
+                const imageUrl = `${baseUrl}/images/${filename}`;
+                console.log('Chart URL:', imageUrl);
+                return { url: imageUrl, filepath: filepath };
+            } catch (writeError) {
+                console.error('Failed to write chart to disk:', writeError);
+                console.log('Falling back to in-memory buffer');
+                return { buffer: finalBuffer, isBuffer: true };
+            }
         } catch (error) {
             console.error('Error generating chart:', error);
             return null;
         }
     }
 
-    // NEW METHOD: Calculate label positions
+    // NEW: Calculate label positions based on chart type and dimensions
     calculateLabelPositions(data, type, width, height) {
         const { labels } = data;
         if (!labels || !Array.isArray(labels)) {
@@ -366,12 +365,11 @@ class SVGGraphService {
 
         const positions = [];
         const fontSize = 14;
-        const fontFamily = this.defaultFontFamily;
 
         if (type.toLowerCase() === 'bar' || type.toLowerCase() === 'line') {
-            const labelWidth = (width - 200) / labels.length; // 100px margins
+            const labelWidth = (width - 200) / labels.length;
             const xOffset = 100;
-            const yPosition = height - 50; // 50px from bottom
+            const yPosition = height - 50;
 
             labels.forEach((label, index) => {
                 positions.push({
@@ -379,12 +377,11 @@ class SVGGraphService {
                     x: xOffset + (index * labelWidth) + (labelWidth / 2),
                     y: yPosition,
                     textAlign: 'center',
-                    fontSize,
-                    fontFamily
+                    fontSize
                 });
             });
         } else if (type.toLowerCase() === 'pie' || type.toLowerCase() === 'doughnut') {
-            const startX = width - 150; // 150px from left
+            const startX = width - 150;
             const startY = 200;
             const lineHeight = 30;
 
@@ -394,8 +391,7 @@ class SVGGraphService {
                     x: startX,
                     y: startY + (index * lineHeight),
                     textAlign: 'left',
-                    fontSize,
-                    fontFamily
+                    fontSize
                 });
             });
         }
@@ -403,29 +399,27 @@ class SVGGraphService {
         return positions;
     }
 
-    // UPDATED METHOD: Draw labels directly on canvas
+    // UPDATED: Draw labels directly on canvas
     async combineChartWithLabels(imageBuffer, labelPositions) {
         try {
-            const { Image } = require('canvas'); // Import required module
+            const { Image } = require('canvas');
             const img = new Image();
             img.src = imageBuffer;
-
+            
             const canvas = createCanvas(1200, 700);
             const ctx = canvas.getContext('2d');
-
-            // Draw original chart
+            
             ctx.drawImage(img, 0, 0, 1200, 700);
-
-            // Draw labels
+            
             if (labelPositions && labelPositions.length > 0) {
                 ctx.fillStyle = 'black';
                 labelPositions.forEach(label => {
-                    ctx.font = `${label.fontSize}px "${label.fontFamily}"`;
+                    ctx.font = `${label.fontSize}px "${this.defaultFontFamily}"`;
                     ctx.textAlign = label.textAlign;
                     ctx.fillText(label.text, label.x, label.y);
                 });
             }
-
+            
             return canvas.toBuffer('image/png');
         } catch (error) {
             console.error('Error combining chart with labels:', error);
@@ -433,10 +427,6 @@ class SVGGraphService {
         }
     }
 
-    /**
-     * Clean up a graph file
-     * @param {string} filepath - Path to graph file
-     */
     cleanupGraphFile(filepath) {
         try {
             if (filepath && typeof filepath === 'string' && fs.existsSync(filepath)) {
@@ -447,51 +437,42 @@ class SVGGraphService {
             console.error('Error cleaning up graph file:', error);
         }
     }
-
-    /**
-     * Start timer to clean up old images periodically
-     */
+    
     startCleanupTimer() {
-        // Clean every 10 minutes
         const interval = 10 * 60 * 1000;
         setInterval(() => {
             this.cleanupOldImages();
         }, interval);
-        console.log(`Cleanup timer started, will run every ${interval / 60000} minutes`);
+        console.log(`Cleanup timer started, will run every ${interval/60000} minutes`);
     }
-
-    /**
-     * Clean up old images to prevent disk space issues
-     */
+    
     cleanupOldImages() {
         try {
             if (!this.staticImagesDir || !fs.existsSync(this.staticImagesDir)) {
                 return;
             }
-
+            
             console.log('Running cleanup of old graph images...');
             const files = fs.readdirSync(this.staticImagesDir);
             const now = Date.now();
             let cleanedCount = 0;
-
+            
             files.forEach(file => {
-                // Only clean graph files we've generated
                 if (!file.startsWith('graph_')) {
                     return;
                 }
-
+                
                 const filePath = path.join(this.staticImagesDir, file);
                 const stats = fs.statSync(filePath);
                 const fileAge = now - stats.mtime.getTime();
-
-                // Delete files older than 30 minutes
-                const maxAge = 30 * 60 * 1000; // 30 minutes
+                
+                const maxAge = 30 * 60 * 1000;
                 if (fileAge > maxAge) {
                     fs.unlinkSync(filePath);
                     cleanedCount++;
                 }
             });
-
+            
             if (cleanedCount > 0) {
                 console.log(`Cleaned up ${cleanedCount} old graph images`);
             }
