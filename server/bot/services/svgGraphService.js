@@ -20,9 +20,10 @@ class SVGGraphService {
         console.log(`[SVGGraphService] tempDir: ${this.tempDir}`);
         
         this.ensureDirectories();
+        this.setupFontConfig(); 
         this.startCleanupTimer();
 
-        const fontFileName = 'OpenSans-Regular.ttf';
+        const fontFileName = 'OpenSans.ttf';
         const fontPath = path.resolve(__dirname, '..', '..', 'assets', 'fonts', fontFileName); 
         
         console.log(`[FontLoading] Attempting to load font. Resolved path: ${fontPath}`);
@@ -480,6 +481,36 @@ class SVGGraphService {
             console.error('Error cleaning up images:', error);
         }
     }
+
+    setupFontConfig() {
+    try {
+        // Only set FONTCONFIG_PATH if not already defined
+        if (!process.env.FONTCONFIG_PATH) {
+            const fontConfigDir = path.join(require('os').tmpdir(), 'fontconfig');
+            if (!fs.existsSync(fontConfigDir)) {
+                fs.mkdirSync(fontConfigDir, { recursive: true });
+            }
+            
+            // Create minimal fonts.conf file
+            const fontsConfPath = path.join(fontConfigDir, 'fonts.conf');
+            if (!fs.existsSync(fontsConfPath)) {
+                const minimalConfig = `<?xml version="1.0"?>
+                <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+                <fontconfig>
+                    <dir>/tmp</dir>
+                    <cachedir>${path.join(fontConfigDir, 'cache')}</cachedir>
+                    <config></config>
+                </fontconfig>`;
+                fs.writeFileSync(fontsConfPath, minimalConfig);
+            }
+            
+            process.env.FONTCONFIG_PATH = fontConfigDir;
+            console.log(`Set FONTCONFIG_PATH to: ${fontConfigDir}`);
+        }
+    } catch (error) {
+        console.error('Error setting up fontconfig:', error);
+    }
+}
 }
 
 module.exports = SVGGraphService;
