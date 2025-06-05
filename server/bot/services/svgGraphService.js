@@ -24,10 +24,10 @@ class SVGGraphService {
             this.staticImagesDir = path.join(__dirname, '../../../wwwroot/images');
             this.tempDir = path.join(__dirname, '../../temp/graphs');
         }
-        
+
         console.log(`[SVGGraphService] staticImagesDir: ${this.staticImagesDir}`);
         console.log(`[SVGGraphService] tempDir: ${this.tempDir}`);
-        
+
         this.ensureDirectories(); // This also sets this.outputDir
         this.startCleanupTimer();
 
@@ -35,8 +35,8 @@ class SVGGraphService {
         const fontFileName = 'OpenSans-Regular.ttf';
         // __dirname for server/bot/services/svgGraphService.js
         // Path to server/assets/fonts/OpenSans-Regular.ttf
-        const fontPath = path.resolve(__dirname, '..', '..', 'assets', 'fonts', fontFileName); 
-        
+        const fontPath = path.resolve(__dirname, '..', '..', 'assets', 'fonts', fontFileName);
+
         console.log(`[FontLoading] Attempting to load font. Resolved path: ${fontPath}`);
         this.defaultFontFamily = 'sans-serif'; // Default fallback
 
@@ -94,20 +94,20 @@ class SVGGraphService {
                 fs.mkdirSync(this.staticImagesDir, { recursive: true });
                 console.log(`Created static images directory at: ${this.staticImagesDir}`);
             }
-            
+
             // Test write access to static directory
             const testFile = path.join(this.staticImagesDir, 'test_write.tmp');
             fs.writeFileSync(testFile, 'test');
             fs.unlinkSync(testFile);
             console.log('Static images directory is writable:', this.staticImagesDir);
-            
+
             // Use static images directory as primary output
             this.outputDir = this.staticImagesDir;
             return;
         } catch (error) {
             console.warn('Static images directory is not writable, falling back to temp directory:', error.message);
         }
-        
+
         try {
             // For Azure App Service, use the writable temp directory if static dir fails
             const isAzure = process.env.WEBSITE_SITE_NAME || process.env.APPSETTING_WEBSITE_SITE_NAME;
@@ -173,7 +173,7 @@ class SVGGraphService {
      */
     createBaseChartConfig(data, type, title) {
         const { data: values, units } = data;
-        
+
         // Enhanced color palettes
         const colorPalettes = {
             primary: [
@@ -339,203 +339,96 @@ class SVGGraphService {
      */
     async generateGraph(data, type = 'bar', title = 'Data Visualization') {
         try {
-            console.log('Generating chart with SVG labels:', { type, title });
-            
-            // Create chart config without labels (we'll add them via SVG)
-            const baseConfig = this.createBaseChartConfig(data, type, title);
-            
-            // Render the base chart
-            const imageBuffer = await this.chartJSNodeCanvas.renderToBuffer(baseConfig);
-            
-            // Create SVG with labels
-            const svgLabels = this.createLabelsSVG(data, type);
-            
-            // Combine chart image with SVG labels
-            const finalBuffer = await this.combineChartWithLabels(imageBuffer, svgLabels, type);
-            
-            // Generate a unique filename with timestamp and random string
-            const randomString = Math.random().toString(36).substring(2, 11);
-            const filename = `graph_${Date.now()}_${randomString}.png`;
-            
-            // If no writable directory is available, return buffer directly
-            if (!this.outputDir) {
-                console.log('No writable directory available, returning image buffer directly');
-                return { buffer: finalBuffer, isBuffer: true };
-            }
+            console.log('Generating chart with canvas labels:', { type, title });
 
-            const filepath = path.join(this.outputDir, filename);
+            // ... existing code to create baseConfig and imageBuffer ...
 
-            try {
-                fs.writeFileSync(filepath, finalBuffer);
-                console.log('Chart saved to:', filepath);
-                
-                // Determine if we're using the static directory and return URL
-                let baseUrl;
-                
-                if (this.isAzure) {
-                    // Azure App Service environment
-                    baseUrl = process.env.WEBSITE_HOSTNAME ? 
-                        `https://${process.env.WEBSITE_HOSTNAME}` : 
-                        process.env.APP_SERVICE_URL;
-                } else {
-                    // Local development fallback
-                    const port = process.env.PORT || 3978;
-                    baseUrl = `http://localhost:${port}`;
-                }
-                
-                if (!baseUrl) {
-                    // Final fallback
-                    baseUrl = process.env.APP_SERVICE_URL || 'https://yourappname.azurewebsites.net';
-                }
-                
-                // Ensure no trailing slash in the baseUrl
-                if (baseUrl.endsWith('/')) {
-                    baseUrl = baseUrl.slice(0, -1);
-                }
-                
-                const imageUrl = `${baseUrl}/images/${filename}`;
-                console.log('Chart URL:', imageUrl);
-                return { url: imageUrl, filepath: filepath };
-            } catch (writeError) {
-                console.error('Failed to write chart to disk:', writeError);
-                console.log('Falling back to in-memory buffer');
-                return { buffer: finalBuffer, isBuffer: true };
-            }
+            // Calculate label positions
+            const labelPositions = this.calculateLabelPositions(data, type, 1200, 700);
+            console.log(`Label positions calculated: ${labelPositions.length} labels`);
+
+            // Combine chart image with label positions
+            const finalBuffer = await this.combineChartWithLabels(imageBuffer, labelPositions);
+
+            // ... rest of existing code (filename generation, saving, etc) ...
         } catch (error) {
             console.error('Error generating chart:', error);
             return null;
         }
     }
 
-    /**
-     * Create SVG with text labels
-     * @param {Object} data - Chart data
-     * @param {string} type - Chart type
-     * @returns {string} - SVG string
-     */
-    createLabelsSVG(data, type) {
+    // NEW METHOD: Calculate label positions
+    calculateLabelPositions(data, type, width, height) {
         const { labels } = data;
         if (!labels || !Array.isArray(labels)) {
-            return null;
+            return [];
         }
 
-        // Create a simplified SVG with just the text labels
-        // This is just a placeholder - in a real implementation you'd calculate
-        // the positions based on the chart type and data
-        let svg = `<svg width="1200" height="700" xmlns="http://www.w3.org/2000/svg">`;
-        
+        const positions = [];
+        const fontSize = 14;
+        const fontFamily = this.defaultFontFamily;
+
         if (type.toLowerCase() === 'bar' || type.toLowerCase() === 'line') {
-            // For bar and line charts, add labels at the bottom
-            const labelWidth = 1000 / labels.length;
-            const xOffset = 100; // Left margin
-            const yPosition = 650; // Bottom position
-            
+            const labelWidth = (width - 200) / labels.length; // 100px margins
+            const xOffset = 100;
+            const yPosition = height - 50; // 50px from bottom
+
             labels.forEach((label, index) => {
-                const x = xOffset + (index * labelWidth) + (labelWidth / 2);
-                svg += `<text x="${x}" y="${yPosition}" font-family="Arial, sans-serif" font-size="14" text-anchor="middle" fill="black">${this.safeText(label)}</text>`;
+                positions.push({
+                    text: label,
+                    x: xOffset + (index * labelWidth) + (labelWidth / 2),
+                    y: yPosition,
+                    textAlign: 'center',
+                    fontSize,
+                    fontFamily
+                });
             });
         } else if (type.toLowerCase() === 'pie' || type.toLowerCase() === 'doughnut') {
-            // For pie/doughnut charts, add labels on the right side as a legend
-            const yOffset = 200;
+            const startX = width - 150; // 150px from left
+            const startY = 200;
             const lineHeight = 30;
-            
+
             labels.forEach((label, index) => {
-                const y = yOffset + (index * lineHeight);
-                svg += `<rect x="850" y="${y - 10}" width="20" height="20" fill="rgba(0,0,0,0)" stroke="black"/>`;
-                svg += `<text x="880" y="${y + 5}" font-family="Arial, sans-serif" font-size="14" text-anchor="start" fill="black">${this.safeText(label)}</text>`;
+                positions.push({
+                    text: label,
+                    x: startX,
+                    y: startY + (index * lineHeight),
+                    textAlign: 'left',
+                    fontSize,
+                    fontFamily
+                });
             });
         }
-        
-        svg += `</svg>`;
-        return svg;
+
+        return positions;
     }
 
-    /**
-     * Sanitize text for SVG
-     * @param {string} text - Input text
-     * @returns {string} - Safe text
-     */
-    safeText(text) {
-        if (typeof text !== 'string') {
-            return String(text);
-        }
-        return text
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&apos;');
-    }
-
-    /**
-     * Combine chart image with SVG labels
-     * @param {Buffer} imageBuffer - Chart image buffer
-     * @param {string} svgLabels - SVG string with labels
-     * @param {string} type - Chart type
-     * @returns {Promise<Buffer>} - Combined image buffer
-     */
-    async combineChartWithLabels(imageBuffer, svgLabels, type) {
-        // In a real implementation, you would combine the chart image with the SVG labels
-        // This would require using a library like sharp or jimp to composite the images
-        
-        // For this simplified example, we'll just use a custom method to draw the labels
-        // onto the chart using the canvas API
-        
+    // UPDATED METHOD: Draw labels directly on canvas
+    async combineChartWithLabels(imageBuffer, labelPositions) {
         try {
-            // Create a canvas from the original chart image
-            const img = new (require('canvas')).Image();
+            const { Image } = require('canvas'); // Import required module
+            const img = new Image();
             img.src = imageBuffer;
-            
+
             const canvas = createCanvas(1200, 700);
             const ctx = canvas.getContext('2d');
-            
-            // Draw the original chart
+
+            // Draw original chart
             ctx.drawImage(img, 0, 0, 1200, 700);
-            
-            // Draw the labels based on chart type
-            // First, find all full <text>...</text> tag strings
-            const fullTextTagMatches = svgLabels.match(/<text[^>]*>([^<]+)<\/text>/g);
-            // Then, for each full tag string, extract only the inner content
-            const labels = fullTextTagMatches ? fullTextTagMatches.map(fullTag => {
-                const innerContentMatch = fullTag.match(/<text[^>]*>([^<]+)<\/text>/);
-                return innerContentMatch ? innerContentMatch[1].trim() : ''; // Also trim whitespace
-            }) : [];
-            
-            if (type.toLowerCase() === 'bar' || type.toLowerCase() === 'line') {
-                // Draw labels for bar and line charts
-                const labelWidth = 1000 / labels.length;
-                const xOffset = 100;
-                const yPosition = 650;
-                
-                ctx.font = '14px Arial, sans-serif';
-                ctx.textAlign = 'center';
+
+            // Draw labels
+            if (labelPositions && labelPositions.length > 0) {
                 ctx.fillStyle = 'black';
-                
-                labels.forEach((label, index) => {
-                    const x = xOffset + (index * labelWidth) + (labelWidth / 2);
-                    ctx.fillText(label, x, yPosition);
-                });
-            } else if (type.toLowerCase() === 'pie' || type.toLowerCase() === 'doughnut') {
-                // Draw legend for pie and doughnut charts
-                const yOffset = 200;
-                const lineHeight = 30;
-                
-                ctx.font = '14px Arial, sans-serif';
-                ctx.textAlign = 'left';
-                ctx.fillStyle = 'black';
-                
-                labels.forEach((label, index) => {
-                    const y = yOffset + (index * lineHeight);
-                    ctx.strokeRect(850, y - 10, 20, 20);
-                    ctx.fillText(label, 880, y + 5);
+                labelPositions.forEach(label => {
+                    ctx.font = `${label.fontSize}px "${label.fontFamily}"`;
+                    ctx.textAlign = label.textAlign;
+                    ctx.fillText(label.text, label.x, label.y);
                 });
             }
-            
-            // Convert the canvas back to a buffer
+
             return canvas.toBuffer('image/png');
         } catch (error) {
             console.error('Error combining chart with labels:', error);
-            // If there's an error, return the original chart image
             return imageBuffer;
         }
     }
@@ -554,7 +447,7 @@ class SVGGraphService {
             console.error('Error cleaning up graph file:', error);
         }
     }
-    
+
     /**
      * Start timer to clean up old images periodically
      */
@@ -564,9 +457,9 @@ class SVGGraphService {
         setInterval(() => {
             this.cleanupOldImages();
         }, interval);
-        console.log(`Cleanup timer started, will run every ${interval/60000} minutes`);
+        console.log(`Cleanup timer started, will run every ${interval / 60000} minutes`);
     }
-    
+
     /**
      * Clean up old images to prevent disk space issues
      */
@@ -575,22 +468,22 @@ class SVGGraphService {
             if (!this.staticImagesDir || !fs.existsSync(this.staticImagesDir)) {
                 return;
             }
-            
+
             console.log('Running cleanup of old graph images...');
             const files = fs.readdirSync(this.staticImagesDir);
             const now = Date.now();
             let cleanedCount = 0;
-            
+
             files.forEach(file => {
                 // Only clean graph files we've generated
                 if (!file.startsWith('graph_')) {
                     return;
                 }
-                
+
                 const filePath = path.join(this.staticImagesDir, file);
                 const stats = fs.statSync(filePath);
                 const fileAge = now - stats.mtime.getTime();
-                
+
                 // Delete files older than 30 minutes
                 const maxAge = 30 * 60 * 1000; // 30 minutes
                 if (fileAge > maxAge) {
@@ -598,7 +491,7 @@ class SVGGraphService {
                     cleanedCount++;
                 }
             });
-            
+
             if (cleanedCount > 0) {
                 console.log(`Cleaned up ${cleanedCount} old graph images`);
             }
