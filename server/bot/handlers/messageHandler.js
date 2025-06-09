@@ -2,9 +2,8 @@ const { MessageFactory, TurnContext } = require('botbuilder');
 const fs = require('fs');
 const path = require('path');
 
-// Import both graph services for compatibility and fallback
-const GraphService = require('../services/graphService');
-const SVGGraphService = require('../services/svgGraphService');
+// Import Vega graph service
+const VegaGraphService = require('../services/vegaGraphService');
 
 class MessageHandler {
     constructor(openaiService, conversationService, imageService, botActivityHandler) {
@@ -12,9 +11,8 @@ class MessageHandler {
         this.conversationService = conversationService;
         this.imageService = imageService;
         this.botActivityHandler = botActivityHandler;
-        // Initialize both graph services for fallback capability
-        this.svgGraphService = new SVGGraphService();
-        this.graphService = this.svgGraphService; // Use SVG graph service by default
+        // Initialize Vega graph service
+        this.graphService = new VegaGraphService();
         this.REPLY_TO = (process.env.REPLY_TO || '').split('|').map(name =>
             name.toLowerCase().replaceAll(' ', '')
         );
@@ -131,7 +129,7 @@ class MessageHandler {
         // For data that's already been structured for graphing, we can skip analysis
         // and directly use it (since extractGraphDataWithAI already determined it's graphable)
         let chartType = graphData.chartType || 'bar';
-        
+
         // Use the existing graph data since it's already been processed and determined to be graphable
         // No need to check canGraph as the extraction already verified this data is suitable
         console.log('Using chartType:', chartType);

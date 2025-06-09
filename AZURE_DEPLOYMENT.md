@@ -10,7 +10,7 @@ The original issue was that Azure App Service doesn't have Chrome installed by d
 
 ### ✅ What We Use Now:
 
-- **Chart.js with Canvas**: Server-side chart rendering using `chartjs-node-canvas`
+- **Vega**: Server-side chart rendering using Vega and Vega-Lite
 - **No Browser Dependencies**: No Chrome, Puppeteer, or browser requirements
 - **Azure App Service Compatible**: Works out-of-the-box on Azure App Service
 - **High-Quality Charts**: Professional-looking charts with enhanced styling

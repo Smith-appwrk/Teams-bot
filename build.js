@@ -9,7 +9,7 @@ esbuild.build({
         'typescript',
         'canvas', // Native module with .node bindings
         'chart.js', // Used with require.resolve
-        'chartjs-node-canvas', // Depends on canvas
+        'vega', // Vega for chart generation
         '@mapbox/node-pre-gyp', // Native module helper
         'node-gyp'
     ],
