@@ -237,10 +237,12 @@ class VegaGraphService {
             // Create Vega view
             const view = new this.vega.View(this.vega.parse(vegaSpec), { renderer: 'none' });
 
-            // Render to PNG buffer
-            const pngBuffer = await view.toCanvas().then(canvas => {
-                return canvas.toBuffer('image/png');
-            });
+            // Render directly to PNG using Vega's built-in method
+            const imageUrl = await view.toImageURL('png');
+
+            // Convert data URL to buffer
+            const base64Data = imageUrl.replace(/^data:image\/png;base64,/, '');
+            const pngBuffer = Buffer.from(base64Data, 'base64');
 
             console.log('[VegaGraphService] Generated PNG buffer, size:', pngBuffer.length);
 
