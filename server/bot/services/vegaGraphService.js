@@ -269,49 +269,24 @@ class VegaGraphService {
             // Try multiple rendering approaches for better compatibility
             let pngBuffer;
 
-            try {
-                // Method 1: Try using toImageURL (works better with fonts)
-                const view1 = new this.vega.View(this.vega.parse(vegaSpec), {
-                    renderer: 'none',
-                    logLevel: this.vega.Warn
+            var view = new this.vega
+                .View(this.vega.parse(vegaSpec))
+                .renderer('none')
+                .initialize();
+
+            // generate static PNG file from chart
+            view
+                .toCanvas()
+                .then(function (canvas) {
+                    // process node-canvas instance for example, generate a PNG stream to write var
+                    // stream = canvas.createPNGStream();
+                    console.log('Writing PNG to file...')
+                    pngBuffer = canvas.toBuffer();
+                })
+                .catch(function (err) {
+                    console.log("Error writing PNG to file:")
+                    console.error(err)
                 });
-
-                await view1.runAsync();
-                const imageUrl = await view1.toImageURL('png');
-                const base64Data = imageUrl.replace(/^data:image\/png;base64,/, '');
-                pngBuffer = Buffer.from(base64Data, 'base64');
-
-                console.log('[VegaGraphService] Generated PNG using toImageURL method, size:', pngBuffer.length);
-
-                // Check if we got a good result
-                if (pngBuffer.length > 5000) {
-                    console.log('[VegaGraphService] Using toImageURL result (good size)');
-                } else {
-                    throw new Error('toImageURL result too small, trying canvas method');
-                }
-
-            } catch (imageUrlError) {
-                console.log('[VegaGraphService] toImageURL failed, trying canvas method:', imageUrlError.message);
-
-                // Method 2: Canvas rendering with manual setup
-                const canvas = createCanvas(spec.width || 600, spec.height || 400);
-                const ctx = canvas.getContext('2d');
-
-                // Set white background
-                ctx.fillStyle = 'white';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                const view2 = new this.vega.View(this.vega.parse(vegaSpec), {
-                    renderer: 'canvas',
-                    canvas: canvas,
-                    logLevel: this.vega.Warn
-                });
-
-                await view2.runAsync();
-                pngBuffer = canvas.toBuffer('image/png');
-
-                console.log('[VegaGraphService] Generated PNG using canvas method, size:', pngBuffer.length);
-            }
 
             // Try to save to file if possible
             const outputDir = await this.ensureOutputDir();
