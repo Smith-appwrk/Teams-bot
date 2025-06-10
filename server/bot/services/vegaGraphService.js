@@ -1,5 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path');
+const FontManager = require('../../assets/fonts/setupFonts');
+const { createCanvas } = require('canvas');
 
 class VegaGraphService {
     constructor() {
@@ -7,6 +9,7 @@ class VegaGraphService {
         this.isAzureEnvironment = process.env.WEBSITE_SITE_NAME ? true : false;
         this.vega = null;
         this.vegaLite = null;
+        this.fontManager = new FontManager();
         console.log(`[VegaGraphService] Initialized for ${this.isAzureEnvironment ? 'Azure' : 'Local'} environment`);
     }
 
@@ -14,6 +17,10 @@ class VegaGraphService {
         if (!this.vega || !this.vegaLite) {
             this.vega = await import('vega');
             this.vegaLite = await import('vega-lite');
+
+            // Configure Vega to use the canvas library for server-side rendering
+            // This helps with font rendering issues
+            console.log('[VegaGraphService] Vega modules loaded successfully');
         }
     }
 
@@ -77,11 +84,21 @@ class VegaGraphService {
                     labelFontSize: 12,
                     titleFontSize: 14,
                     titleColor: "#333333",
-                    labelColor: "#666666"
+                    labelColor: "#666666",
+                    labelFont: "Arial, sans-serif",
+                    titleFont: "Arial, sans-serif"
                 },
                 legend: {
                     labelFontSize: 12,
-                    titleFontSize: 14
+                    titleFontSize: 14,
+                    labelFont: "Arial, sans-serif",
+                    titleFont: "Arial, sans-serif"
+                },
+                title: {
+                    font: "Arial, sans-serif"
+                },
+                text: {
+                    font: "Arial, sans-serif"
                 }
             }
         };
@@ -234,17 +251,23 @@ class VegaGraphService {
             // Compile Vega-Lite to Vega
             const vegaSpec = this.vegaLite.compile(spec).spec;
 
-            // Create Vega view
-            const view = new this.vega.View(this.vega.parse(vegaSpec), { renderer: 'none' });
+            // Create canvas for rendering
+            const canvas = createCanvas(spec.width || 600, spec.height || 400);
 
-            // Render directly to PNG using Vega's built-in method
-            const imageUrl = await view.toImageURL('png');
+            // Create Vega view with canvas for better font support
+            const view = new this.vega.View(this.vega.parse(vegaSpec), {
+                renderer: 'canvas',
+                canvas: canvas,
+                logLevel: this.vega.Warn
+            });
 
-            // Convert data URL to buffer
-            const base64Data = imageUrl.replace(/^data:image\/png;base64,/, '');
-            const pngBuffer = Buffer.from(base64Data, 'base64');
+            // Initialize the view and wait for it to complete
+            await view.runAsync();
 
-            console.log('[VegaGraphService] Generated PNG buffer, size:', pngBuffer.length);
+            // Get PNG buffer from canvas
+            const pngBuffer = canvas.toBuffer('image/png');
+
+            console.log('[VegaGraphService] Generated PNG using canvas method, size:', pngBuffer.length);
 
             // Try to save to file if possible
             const outputDir = await this.ensureOutputDir();
