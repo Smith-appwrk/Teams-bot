@@ -141,7 +141,7 @@ class DataForgeGraphService {
                 .renderImage(filepath);
 
             const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('Chart rendering timeout after 30 seconds')), 30000);
+                setTimeout(() => reject(new Error('Chart rendering timeout after 30 seconds')), 300000);
             });
 
             try {
