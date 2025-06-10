@@ -8,6 +8,15 @@ class DataForgeGraphService {
     constructor() {
         this.outputDir = null;
         this.isAzureEnvironment = process.env.WEBSITE_SITE_NAME ? true : false;
+
+        // Set environment variables for headless Electron rendering
+        if (this.isAzureEnvironment || process.platform === 'linux') {
+            process.env.DISPLAY = process.env.DISPLAY || ':99';
+            process.env.ELECTRON_DISABLE_SANDBOX = '1';
+            process.env.ELECTRON_DISABLE_GPU = '1';
+            console.log('[DataForgeGraphService] Set headless environment variables for server');
+        }
+
         console.log(`[DataForgeGraphService] Initialized for ${this.isAzureEnvironment ? 'Azure' : 'Local'} environment`);
     }
 
@@ -123,10 +132,25 @@ class DataForgeGraphService {
 
             console.log('[DataForgeGraphService] Plot configuration:', plotDef);
 
-            // Generate the plot and render to image
-            await dataFrame
+            // Generate the plot and render to image with timeout
+            console.log('[DataForgeGraphService] Starting chart rendering...');
+
+            // Add timeout to prevent hanging
+            const renderPromise = dataFrame
                 .plot(plotDef)
                 .renderImage(filepath);
+
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Chart rendering timeout after 30 seconds')), 30000);
+            });
+
+            try {
+                await Promise.race([renderPromise, timeoutPromise]);
+                console.log('[DataForgeGraphService] Chart rendering completed successfully');
+            } catch (error) {
+                console.error('[DataForgeGraphService] Chart rendering failed:', error.message);
+                throw error;
+            }
 
             console.log('[DataForgeGraphService] Chart rendered successfully to:', filepath);
 

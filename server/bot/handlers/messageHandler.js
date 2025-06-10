@@ -2,8 +2,8 @@ const { MessageFactory, TurnContext } = require('botbuilder');
 const fs = require('fs');
 const path = require('path');
 
-// Import Data-Forge graph service
-const DataForgeGraphService = require('../services/dataForgeGraphService');
+// Import Hybrid graph service (tries Data-Forge first, falls back to Vega)
+const HybridGraphService = require('../services/hybridGraphService');
 
 class MessageHandler {
     constructor(openaiService, conversationService, imageService, botActivityHandler) {
@@ -11,8 +11,8 @@ class MessageHandler {
         this.conversationService = conversationService;
         this.imageService = imageService;
         this.botActivityHandler = botActivityHandler;
-        // Initialize Data-Forge graph service
-        this.graphService = new DataForgeGraphService();
+        // Initialize Hybrid graph service
+        this.graphService = new HybridGraphService();
         this.REPLY_TO = (process.env.REPLY_TO || '').split('|').map(name =>
             name.toLowerCase().replaceAll(' ', '')
         );

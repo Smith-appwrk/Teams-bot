@@ -1,12 +1,13 @@
-# Migration to Data-Forge Plot
+# Hybrid Chart Service Implementation
 
 ## ✅ **Problem Solved**
 
-Successfully migrated from Vega charts to [data-forge-plot](https://www.npmjs.com/package/data-forge-plot) to resolve:
+Implemented a hybrid chart service that tries [data-forge-plot](https://www.npmjs.com/package/data-forge-plot) first and falls back to Vega to resolve:
 
 - **Fontconfig errors** on Linux servers
 - **Black/empty chart images** (1KB files)
 - **Font rendering issues** with placeholder boxes
+- **Service hanging** when data-forge-plot fails in server environments
 
 ## **What Changed**
 
@@ -26,13 +27,17 @@ Successfully migrated from Vega charts to [data-forge-plot](https://www.npmjs.co
 
 ## **New Implementation**
 
-### **Service**: `DataForgeGraphService`
+### **Service**: `HybridGraphService`
 
-- **Location**: `server/bot/services/dataForgeGraphService.js`
+- **Location**: `server/bot/services/hybridGraphService.js`
+- **Fallback Strategy**: Uses `DataForgeGraphService` first, then `VegaGraphService`
 - **Dependencies**:
   - `data-forge`
   - `data-forge-plot`
   - `@plotex/render-image`
+  - `vega`
+  - `vega-lite`
+  - `canvas`
 
 ### **Chart Types Supported**:
 

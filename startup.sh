@@ -10,5 +10,10 @@ fc-cache -fv
 export FONTCONFIG_PATH=/etc/fonts
 export XDG_CONFIG_HOME=/tmp
 
+# Set Electron environment variables for headless rendering
+export DISPLAY=:99
+export ELECTRON_DISABLE_SANDBOX=1
+export ELECTRON_DISABLE_GPU=1
+
 # Start your Node.js application
 npm start
