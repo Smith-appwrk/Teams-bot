@@ -2,8 +2,8 @@ const { MessageFactory, TurnContext } = require('botbuilder');
 const fs = require('fs');
 const path = require('path');
 
-// Import Vega graph service
-const VegaGraphService = require('../services/vegaGraphService');
+// Import Data-Forge graph service
+const DataForgeGraphService = require('../services/dataForgeGraphService');
 
 class MessageHandler {
     constructor(openaiService, conversationService, imageService, botActivityHandler) {
@@ -11,8 +11,8 @@ class MessageHandler {
         this.conversationService = conversationService;
         this.imageService = imageService;
         this.botActivityHandler = botActivityHandler;
-        // Initialize Vega graph service
-        this.graphService = new VegaGraphService();
+        // Initialize Data-Forge graph service
+        this.graphService = new DataForgeGraphService();
         this.REPLY_TO = (process.env.REPLY_TO || '').split('|').map(name =>
             name.toLowerCase().replaceAll(' ', '')
         );
