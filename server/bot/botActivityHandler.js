@@ -9,6 +9,7 @@ const OpenAIService = require('./services/openaiService.js');
 const ConversationService = require('./services/conversationService.js');
 const ImageService = require('./services/imageService.js');
 const MessageHandler = require('./handlers/messageHandler.js');
+const AIAgentService = require('./services/aiAgentService.js');
 
 class BotActivityHandler extends TeamsActivityHandler {
   constructor() {
@@ -18,18 +19,26 @@ class BotActivityHandler extends TeamsActivityHandler {
     this.openaiService = new OpenAIService(CONFIG.OPENAI_API_KEY);
     this.conversationService = new ConversationService(CONFIG.MESSAGE_RETENTION_COUNT);
     this.imageService = new ImageService();
+
+    // Initialize AI Agent Service for optimized token usage
+    this.aiAgentService = new AIAgentService(this.openaiService);
+
     this.messageHandler = new MessageHandler(
       this.openaiService,
       this.conversationService,
       this.imageService,
-      this
+      this,
+      this.aiAgentService
     );
 
-    // Load IntelliGate FAQ content
+    // Load IntelliGate FAQ content and initialize AI Agent
     const intelligateContent = fs.readFileSync(
       path.join(__dirname, '../data/intelligate.md'),
       'utf8'
     );
+
+    // Initialize the AI Agent with knowledge base
+    this.aiAgentService.initialize(intelligateContent);
 
     // Load available images from the images directory
     this.availableImages = this.loadAvailableImages();
@@ -44,8 +53,8 @@ class BotActivityHandler extends TeamsActivityHandler {
 
       console.log('Found image paths:', imagePaths);
 
-      // Pass the image paths to the message handler
-      await this.messageHandler.handleMessage(context, intelligateContent, imagePaths);
+      // Pass the image paths to the message handler (AI Agent will handle knowledge base optimization)
+      await this.messageHandler.handleMessage(context, null, imagePaths);
       await next();
     });
 
