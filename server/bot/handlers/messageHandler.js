@@ -73,6 +73,8 @@ class MessageHandler {
     }
 
     async processUserInput(context, message) {
+        // Correct spelling before further processing
+        message = await this.openaiService.correctSpelling(message);
         if (context.activity.attachments?.length > 0 &&
             context.activity.attachments[0].contentType.startsWith('image/')) {
             const imageUrl = context.activity.attachments[0].contentUrl;

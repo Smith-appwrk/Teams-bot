@@ -106,6 +106,7 @@ Note: Respond naturally based on conversation flow.`;
                     },
                     { role: "user", content: `Analyze this query: "${query}"` }
                 ],
+                temperature: 0.3,
                 max_tokens: 100
             });
 

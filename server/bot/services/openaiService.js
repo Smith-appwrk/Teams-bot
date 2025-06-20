@@ -44,7 +44,7 @@ class OpenAIService {
             messages,
             temperature: CONFIG.RESPONSE_TEMPERATURE,  // Controls randomness (lower = more predictable)
             frequency_penalty: CONFIG.COMPLETION_FREQUENCY_PENALTY,  // Discourages repetition
-            // presence_penalty: CONFIG.COMPLETION_PRESENCE_PENALTY
+            presence_penalty: CONFIG.COMPLETION_PRESENCE_PENALTY
         });
 
         return completion.choices[0].message.content;
@@ -130,6 +130,7 @@ Example outputs:
                 },
                 { role: "user", content: prompt }
             ],
+            temperature: 0.1, // Low temperature for consistent results
         });
 
         try {
@@ -191,6 +192,7 @@ Return ONLY a valid JSON object like:
                     },
                     { role: "user", content: prompt }
                 ],
+                temperature: 0.3,
                 response_format: { type: "json_object" }
             });
 
@@ -435,6 +437,7 @@ Output: {
                     },
                     { role: "user", content: prompt }
                 ],
+                temperature: 0.1,
                 max_tokens: 1000
             });
 
@@ -460,6 +463,20 @@ Output: {
             console.error('Error extracting graph data with AI:', error);
             return null;
         }
+    }
+
+    async correctSpelling(text) {
+        if (!text || text.trim().length < 3) return text;
+        const prompt = `Correct any spelling mistakes in the following text, but do not change the meaning or intent. Only return the corrected text, nothing else.\n\nText: ${text}`;
+        const completion = await this.openai.chat.completions.create({
+            model: CONFIG.OPENAI_MODEL,
+            messages: [
+                { role: "system", content: "You are a helpful assistant that corrects spelling mistakes in user queries." },
+                { role: "user", content: prompt }
+            ],
+            temperature: 0.1
+        });
+        return completion.choices[0].message.content.trim();
     }
 }
 
