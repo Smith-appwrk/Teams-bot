@@ -93,7 +93,6 @@ Keep the summary concise and focused on information that might be relevant for f
                     },
                     { role: "user", content: summaryPrompt }
                 ],
-                temperature: 0.3,
                 max_tokens: 150
             });
 

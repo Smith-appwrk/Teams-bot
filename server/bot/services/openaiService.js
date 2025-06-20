@@ -130,7 +130,6 @@ Example outputs:
                 },
                 { role: "user", content: prompt }
             ],
-            temperature: 0.1, // Low temperature for consistent results
         });
 
         try {
@@ -192,19 +191,18 @@ Return ONLY a valid JSON object like:
                     },
                     { role: "user", content: prompt }
                 ],
-                temperature: 0.3,
                 response_format: { type: "json_object" }
             });
 
             const responseContent = completion.choices[0].message.content;
             const parsedResponse = JSON.parse(responseContent);
-            
+
             // Validate the response format
             if (typeof parsedResponse.canGraph !== 'boolean') {
                 console.warn("Invalid response format - canGraph is not a boolean:", responseContent);
                 return this._analyzeDataFallback(data);
             }
-            
+
             return parsedResponse;
         } catch (error) {
             console.error("Error in graph analysis:", error);
@@ -232,13 +230,13 @@ Return ONLY a valid JSON object like:
         }
         return false;
     }
-    
+
     // Fallback analysis when API call or parsing fails
     _analyzeDataFallback(data) {
         let canGraph = false;
         let graphType = null;
         let reason = "Unable to determine if data is graphable";
-        
+
         // Simple heuristic analysis
         if (Array.isArray(data) && data.length >= 2) {
             const hasNumericValues = data.some(item => {
@@ -248,14 +246,14 @@ Return ONLY a valid JSON object like:
                 }
                 return false;
             });
-            
+
             if (hasNumericValues) {
                 canGraph = true;
                 graphType = "bar"; // Default to bar chart
                 reason = "Data contains multiple items with numeric values";
             }
         }
-        
+
         return { canGraph, graphType, reason };
     }
 
@@ -437,7 +435,6 @@ Output: {
                     },
                     { role: "user", content: prompt }
                 ],
-                temperature: 0.1,
                 max_tokens: 1000
             });
 
