@@ -44,7 +44,7 @@ class OpenAIService {
             messages,
             temperature: CONFIG.RESPONSE_TEMPERATURE,  // Controls randomness (lower = more predictable)
             frequency_penalty: CONFIG.COMPLETION_FREQUENCY_PENALTY,  // Discourages repetition
-            presence_penalty: CONFIG.COMPLETION_PRESENCE_PENALTY
+            // presence_penalty: CONFIG.COMPLETION_PRESENCE_PENALTY
         });
 
         return completion.choices[0].message.content;
